@@ -835,6 +835,21 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
   .pxmid { flex-direction: column; }
   .pxside { width: auto; }
   .dfoot { flex-wrap: wrap; }
+
+  /* 像素化：中間自己捲，取消 / 套用釘在底部，不被兩張預覽推出螢幕 */
+  #pxmodal.dialog { align-items: stretch; }
+  #pxmodal .box.wide {
+    height: 100%; max-height: none; overflow: hidden; padding-bottom: 0;
+  }
+  #pxmodal .pxmid { overflow-y: auto; overscroll-behavior: contain; }
+  #pxmodal .dfoot {
+    flex: none; justify-content: stretch;
+    padding: var(--sp-3); padding-bottom: calc(var(--sp-3) + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--line-1); background: var(--surface-1);
+  }
+  #pxmodal .dfoot .grow { display: none; }
+  #pxmodal .dfoot .warnline { flex: 1 0 100%; }
+  #pxmodal .dfoot .btn { flex: 1; min-height: 44px; }
   #cropbar { padding: var(--sp-2) var(--sp-3); gap: var(--sp-2); }
   #cropbar input { width: 56px; }
   #crop-info { min-width: 0; }
@@ -864,7 +879,7 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
   .cards { flex-direction: column; width: 100%; }
   .card { width: 100%; flex-direction: row; text-align: left; align-items: center; padding: var(--sp-3); gap: var(--sp-3); }
   .card .sub br { display: none; }
-  .pxpane canvas { max-height: 34vh; }
+  .pxpane canvas { max-height: 26vh; }
   #m-text { min-height: 200px; }
   .keygrid { grid-template-columns: 1fr; }
   #cropbar .sub { display: none; }
