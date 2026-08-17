@@ -59,6 +59,7 @@ PA.render = (() => {
       cv.height = Math.round(ch * dpr);
       cv.style.width = cw + 'px';
       cv.style.height = ch + 'px';
+      invalidateRect();
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.imageSmoothingEnabled = false;
@@ -156,7 +157,16 @@ PA.render = (() => {
   // 對稱軸用搜尋的，不是取幾何中心 —— 角色常有法杖、單邊瀏海之類的不對稱物件，
   // 拿不透明範圍的中心當軸會整片標紅，毫無參考價值。
   // 評分取「相符率」，自然會落在真正對稱的那條軸上。
+  // 這是 O(w²·h) 的搜尋，結果只跟點陣圖有關，所以依 (圖, 版本) 記住 —— 否則對稱軸欄位一清空，
+  // 每次滑鼠移動都會重跑一次整張圖的搜尋。
+  let _axisIm = null, _axisRev = -1, _axisVal = 0;
   function mirrorAxisOf(im) {
+    if (_axisIm === im && _axisRev === (im.rev || 0)) return _axisVal;
+    _axisVal = computeMirrorAxis(im);
+    _axisIm = im; _axisRev = im.rev || 0;
+    return _axisVal;
+  }
+  function computeMirrorAxis(im) {
     const { w, h, rgba } = im;
     let lo = w, hi = -1;
     for (let y = 0; y < h; y++) {
@@ -287,21 +297,34 @@ PA.render = (() => {
   }
 
   /* ---------- 部件色 ---------- */
+  // 每個 id 先查一次要不要畫、畫什麼色（不在內迴圈裡 parts.find），
+  // 同色的格收成一個 Path2D 一次 fill —— 每幀從 w·h 次 fillRect 變成「部件數」次 fill。
   function drawParts(a, w, h, zoom, S) {
     const g = a.grid;
+    const fillOf = new Map();          // id -> colour | null
+    for (const p of a.parts) {
+      const id = p.id;
+      fillOf.set(id, id === S.hoverPart ? HILITE : S.shownParts.has(id) ? p.color : null);
+    }
+    const paths = new Map();           // colour -> Path2D
     for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const id = g[y * w + x];
-        if (!id) continue;
-        const p = a.parts.find(q => q.id === id);
-        if (!p) continue;
-        // 沒被選取的部件不畫，讓原圖透出來
-        const fill = id === S.hoverPart ? HILITE : S.shownParts.has(id) ? p.color : null;
-        if (!fill) continue;
-        ctx.fillStyle = fill;
-        ctx.fillRect(x * zoom, y * zoom, zoom, zoom);
+      const row = y * w, Y = y * zoom;
+      for (let x = 0; x < w;) {
+        const id = g[row + x];
+        if (!id) { x++; continue; }
+        // 同一列連續同 id 的格併成一個矩形
+        let xe = x + 1;
+        while (xe < w && g[row + xe] === id) xe++;
+        const fill = fillOf.get(id);
+        if (fill) {
+          let path = paths.get(fill);
+          if (!path) { path = new Path2D(); paths.set(fill, path); }
+          path.rect(x * zoom, Y, (xe - x) * zoom, zoom);
+        }
+        x = xe;
       }
     }
+    for (const [fill, path] of paths) { ctx.fillStyle = fill; ctx.fill(path); }
   }
 
   /* ---------- 格線：深淺雙色，亮暗像素上都有一條能看見 ---------- */
@@ -358,9 +381,28 @@ PA.render = (() => {
     return Math.max(1, Math.min(Math.floor(availW / im.w), Math.floor(availH / im.h)));
   }
 
+  // 畫布的螢幕矩形。每次 pointermove 都 getBoundingClientRect 會強制排版；
+  // 同一個影格內（同一輪事件）多次呼叫共用一次量測，畫布搬動時由 ui 呼叫 invalidateRect()。
+  let _rect = null, _rectFrame = -1, _frameNo = 0;
+  function canvasRect() {
+    if (_rect && _rectFrame === _frameNo) return _rect;
+    _rect = cv.getBoundingClientRect();
+    _rectFrame = _frameNo;
+    return _rect;
+  }
+  // 讓下一次 canvasRect() 重新量（縮放 / 捲動 / 版面變化後）
+  const invalidateRect = () => { _frameNo++; };
+  // 沒有 rAF 也要有「影格」的概念：每次 pointer 事件之間有可能捲動，所以保守一點——
+  // 只在同一個 macrotask 內共用；用 queueMicrotask 在事件處理完後就失效
+  function canvasRectOnce() {
+    const r = canvasRect();
+    queueMicrotask(invalidateRect);
+    return r;
+  }
+
   // 由實際繪製尺寸反推像素座標 —— 窄螢幕時 CSS 可能縮過畫布，不能直接用 zoom 換算
   function pxAt(e) {
-    const r = cv.getBoundingClientRect();
+    const r = canvasRectOnce();
     const im = store.img();
     return [Math.floor((e.clientX - r.left) / (r.width / im.w)),
             Math.floor((e.clientY - r.top) / (r.height / im.h))];
@@ -368,19 +410,34 @@ PA.render = (() => {
 
   // 畫布上的 CSS 像素座標（裁切把手命中測試用）
   function canvasPosAt(e) {
-    const r = cv.getBoundingClientRect();
+    const r = canvasRectOnce();
     return [e.clientX - r.left, e.clientY - r.top];
   }
 
-  // 縮圖用的小 canvas
+  // 縮圖用的小 canvas：CSS 只顯示 40–52px，來源解析度的 canvas 純粹浪費 backing store，
+  // 縮到最長邊 64px 就夠。縮小的結果依 (圖, 版本) 快取在圖片物件上；每次呼叫回傳的是
+  // 一個從快取複製出來的新 canvas（同一個 DOM 節點不能同時掛在縮圖列與圖片分頁兩處）。
+  const THUMB_MAX = 64;
   function thumb(im) {
+    const rev = im.rev || 0;
+    let src = im._thumb;
+    if (!src || im._thumbRev !== rev) {
+      const s = Math.min(1, THUMB_MAX / Math.max(im.w, im.h));
+      src = document.createElement('canvas');
+      src.width = Math.max(1, Math.round(im.w * s));
+      src.height = Math.max(1, Math.round(im.h * s));
+      const x = src.getContext('2d');
+      x.imageSmoothingEnabled = false;
+      x.drawImage(im.cvs, 0, 0, src.width, src.height);
+      im._thumb = src; im._thumbRev = rev;
+    }
     const c = document.createElement('canvas');
-    c.width = im.w; c.height = im.h;
-    c.getContext('2d').drawImage(im.cvs, 0, 0);
+    c.width = src.width; c.height = src.height;
+    c.getContext('2d').drawImage(src, 0, 0);
     return c;
   }
 
-  return { init, draw, fitZoom, clampZoom, zoomMax, pxAt, canvasPosAt, thumb, mirrorAxisOf,
+  return { init, draw, fitZoom, clampZoom, zoomMax, pxAt, canvasPosAt, invalidateRect, thumb, mirrorAxisOf,
            mirrorDiff: () => lastMirrorDiff,
            cropHitTest, CROP_CURSORS, HILITE, MAX_ZOOM };
 })();

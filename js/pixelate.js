@@ -1,6 +1,8 @@
 /* pixelate — 把「看起來像像素圖但沒對齊」的圖(通常是 AI 生成後放大的)還原成真正的像素圖。
-   純運算,不碰畫面也不碰狀態。三步:偵測格線 -> 每格取色 -> 減色。 */
-window.PA = window.PA || {};
+   純運算,不碰畫面也不碰狀態。三步:偵測格線 -> 每格取色 -> 減色。
+   可在 Worker 裡跑（沒有 window / DOM）；主執行緒另見檔尾 callAsync。 */
+const PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
+PA_ROOT.PA = PA_ROOT.PA || {};
 
 PA.pixelate = (() => {
 
@@ -75,51 +77,21 @@ PA.pixelate = (() => {
     return { score: bv, phase: bp };
   }
 
-  // 單軸粗掃,回傳最佳格寬。圖太小或完全沒有週期性時回傳 null,
-  // 不要回傳格寬 0 —— 呼叫端會算出 Infinity 格。
-  function coarseAxis(E, total, n) {
-    // 範圍要隨圖片大小調整:原本固定 4~n/8,對 32px 以下的圖上限會小於起點,
-    // 迴圈一次都不跑,偵測必然失敗。大圖的範圍維持原樣不受影響。
-    const lo = Math.min(4, Math.max(2, n / 12));
-    const hi = Math.max(4.5, n / 8);
-    let bv = -1, bs = 0;
-    for (let s = lo; s <= hi; s += 0.25) {
-      const r = bestPhase(E, total, s, 16);
-      if (r.score > bv) { bv = r.score; bs = s; }
-    }
-    return bs >= 2 ? { score: bv, size: bs } : null;
-  }
-
   const sum = a => { let t = 0; for (let i = 0; i < a.length; i++) t += a[i]; return t; };
-
-  function detectGrid(rgba, w, h) {
-    const ex = edgeEnergy(rgba, w, h, 0), ey = edgeEnergy(rgba, w, h, 1);
-    const tx = sum(ex), ty = sum(ey);
-    const cx = coarseAxis(ex, tx, w), cy = coarseAxis(ey, ty, h);
-    if (!cx || !cy) return null;
-
-    // 像素圖的像素幾乎一定是正方形,所以鎖同一個格寬 —— 兩軸各自的最佳值常差 1~2px,
-    // 不鎖的話結果會歪斜。兩軸的候選都試一遍,取「兩軸分數總和」較高的那個,
-    // 只挑單軸分數較高者不夠可靠(實測有圖的 Y 軸會選到完全錯的尺度)。
-    const refine = s0 => {
-      let out = { score: -1, s: s0, phx: 0, phy: 0 };
-      for (let s = Math.max(2, s0 - 0.4); s <= s0 + 0.4; s += 0.02) {
-        const a = bestPhase(ex, tx, s, 64), b = bestPhase(ey, ty, s, 64);
-        const v = a.score + b.score;
-        if (v > out.score) out = { score: v, s, phx: a.phase, phy: b.phase };
-      }
-      return out;
-    };
-    const ra = refine(cx.size), rb = refine(cy.size);
-    const best = ra.score >= rb.score ? ra : rb;
+  const axisLo = n => Math.min(4, Math.max(2, n / 12));
+  const axisHi = n => Math.max(4.5, n / 8);
+  function packDetected(best, cx, cy, w, h) {
     const { s, phx, phy } = best;
-
     return {
       sx: s, sy: s, phx, phy,
       nx: Math.max(1, Math.min(512, Math.round((w - phx) / s))),
       ny: Math.max(1, Math.min(512, Math.round((h - phy) / s))),
       scoreX: cx.score, scoreY: cy.score,
     };
+  }
+  function scorePair(ex, ey, tx, ty, s) {
+    const a = bestPhase(ex, tx, s, 64), b = bestPhase(ey, ty, s, 64);
+    return { score: a.score + b.score, s, phx: a.phase, phy: b.phase };
   }
 
   /* ---------- 格線位置:等距只是起點,實際要逐條吸附 ---------- */
@@ -154,22 +126,34 @@ PA.pixelate = (() => {
   }
 
   // 邊緣能量只跟圖片有關,UI 會快取起來,調參數時不必重算。
-  // dx/dy 是逐點差分圖(給逐帶吸附用),ex/ey 是整軸加總(給全圖吸附用)。
+  // dx/dy 是逐點差分圖(給逐帶吸附用),ex/ey 是整軸加總後再平滑(給全圖吸附用)。
+  // 平滑公式與 edgeEnergy 相同,避免把同一組差分再掃四次。
+  function smooth1d(e) {
+    const n = e.length, s = new Float64Array(n);
+    for (let i = 0; i < n; i++)
+      s[i] = 0.25 * e[Math.max(0, i - 1)] + 0.5 * e[i] + 0.25 * e[Math.min(n - 1, i + 1)];
+    return s;
+  }
   function edgeProfiles(rgba, w, h) {
     const dx = new Float32Array(w * h), dy = new Float32Array(w * h);
+    const rawX = new Float64Array(w), rawY = new Float64Array(h);
     for (let y = 0; y < h; y++) {
       for (let x = 1; x < w; x++) {
         const i = (y * w + x) * 4, j = i - 4;
-        dx[y * w + x] = Math.abs(rgba[i] - rgba[j]) + Math.abs(rgba[i + 1] - rgba[j + 1]) + Math.abs(rgba[i + 2] - rgba[j + 2]);
+        const v = Math.abs(rgba[i] - rgba[j]) + Math.abs(rgba[i + 1] - rgba[j + 1]) + Math.abs(rgba[i + 2] - rgba[j + 2]);
+        dx[y * w + x] = v;
+        rawX[x] += v;
       }
     }
     for (let y = 1; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const i = (y * w + x) * 4, j = i - w * 4;
-        dy[y * w + x] = Math.abs(rgba[i] - rgba[j]) + Math.abs(rgba[i + 1] - rgba[j + 1]) + Math.abs(rgba[i + 2] - rgba[j + 2]);
+        const v = Math.abs(rgba[i] - rgba[j]) + Math.abs(rgba[i + 1] - rgba[j + 1]) + Math.abs(rgba[i + 2] - rgba[j + 2]);
+        dy[y * w + x] = v;
+        rawY[y] += v;
       }
     }
-    return { ex: edgeEnergy(rgba, w, h, 0), ey: edgeEnergy(rgba, w, h, 1), dx, dy, w, h };
+    return { ex: smooth1d(rawX), ey: smooth1d(rawY), dx, dy, w, h };
   }
 
   // 網格吸附:AI 在不同區域用的局部格寬可以差很多(實測同一張圖臉部 35~39px、
@@ -181,29 +165,31 @@ PA.pixelate = (() => {
     const nx = xs.length - 1, ny = ys.length - 1;
     const win = Math.max(2, s * 0.35);
 
-    const refine = (diff, W2, H2, lines, bands, out, stride) => {
+    // sScan / sBand：不轉置就能沿另一軸掃描。
+    // dx 沿 x 掃（sScan=1, sBand=w）；dy 沿 y 掃（sScan=w, sBand=1）。
+    const refine = (diff, scanN, lines, bands, out, sScan, sBand, bandMax) => {
       let gm = 0;
       for (let i = 0; i < diff.length; i++) gm += diff[i];
       gm /= diff.length;
 
-      const Eb = new Float64Array(W2), Es = new Float64Array(W2);
+      const Eb = new Float64Array(scanN), Es = new Float64Array(scanN);
       for (let j = 0; j < bands.length - 1; j++) {
         const a = Math.max(0, Math.round(bands[j]));
-        const b = Math.min(H2, Math.max(a + 1, Math.round(bands[j + 1])));
+        const b = Math.min(bandMax, Math.max(a + 1, Math.round(bands[j + 1])));
         Eb.fill(0);
-        for (let y = a; y < b; y++) {
-          const row = y * W2;
-          for (let x = 0; x < W2; x++) Eb[x] += diff[row + x];
+        for (let band = a; band < b; band++) {
+          const base = band * sBand;
+          for (let x = 0; x < scanN; x++) Eb[x] += diff[base + x * sScan];
         }
-        for (let x = 0; x < W2; x++) {
-          Es[x] = 0.25 * Eb[Math.max(0, x - 1)] + 0.5 * Eb[x] + 0.25 * Eb[Math.min(W2 - 1, x + 1)];
+        for (let x = 0; x < scanN; x++) {
+          Es[x] = 0.25 * Eb[Math.max(0, x - 1)] + 0.5 * Eb[x] + 0.25 * Eb[Math.min(scanN - 1, x + 1)];
         }
         const floor = gm * (b - a) * 0.6;     // 峰值至少要有這個強度才可信
         let prev = -Infinity;
         for (let i = 0; i < lines.length; i++) {
           const pred = lines[i];
           const lo = Math.max(0, Math.round(pred - win));
-          const hi = Math.min(W2 - 1, Math.round(pred + win));
+          const hi = Math.min(scanN - 1, Math.round(pred + win));
           let pick = pred, bv = -Infinity;
           for (let x = lo; x <= hi; x++) {
             const v = Es[x] * (1 - 0.55 * Math.abs(x - pred) / win);
@@ -219,11 +205,8 @@ PA.pixelate = (() => {
 
     const xsB = new Float64Array(ny * (nx + 1));
     const ysB = new Float64Array(nx * (ny + 1));
-    refine(dx, w, h, xs, ys, xsB);
-    // 行方向:把 dy 視為「以 y 為掃描軸」— 直接用轉置存取
-    const dyT = new Float32Array(w * h);
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) dyT[x * h + y] = dy[y * w + x];
-    refine(dyT, h, w, ys, xs, ysB);
+    refine(dx, w, xs, ys, xsB, 1, w, h);
+    refine(dy, h, ys, xs, ysB, w, 1, w);
     return { xsB, ysB, nx, ny };
   }
 
@@ -273,8 +256,16 @@ PA.pixelate = (() => {
     for (let j = 0; j < ny; j++) mh = Math.max(mh, Math.ceil(ys[j + 1] - ys[j]));
     const cap = Math.max(16, Math.min(1 << 20, mw * mh * 4));
     const R = new Int32Array(cap), G = new Int32Array(cap), B = new Int32Array(cap), A = new Int32Array(cap);
-    const sr = new Int32Array(cap), sg = new Int32Array(cap), sb = new Int32Array(cap), sa = new Int32Array(cap);
+    const hist = new Uint32Array(256);
     const bounds = { xs, ys };
+    const medianU8 = (src, m) => {
+      hist.fill(0);
+      for (let t = 0; t < m; t++) hist[src[t]]++;
+      const mid = m >> 1;
+      let acc = 0;
+      for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc > mid) return v; }
+      return 255;
+    };
 
     for (let j = 0; j < ny; j++) {
       for (let i = 0; i < nx; i++) {
@@ -298,13 +289,7 @@ PA.pixelate = (() => {
         const o = (j * nx + i) * 4;
         if (!m) continue;
 
-        const med = (src, dst) => {
-          for (let t = 0; t < m; t++) dst[t] = src[t];
-          const v = dst.subarray(0, m);
-          v.sort();
-          return v[m >> 1];
-        };
-        const mr = med(R, sr), mg = med(G, sg), mb = med(B, sb), ma = med(A, sa);
+        const mr = medianU8(R, m), mg = medianU8(G, m), mb = medianU8(B, m), ma = medianU8(A, m);
 
         let bi = 0, bd = Infinity;
         for (let t = 0; t < m; t++) {
@@ -440,24 +425,34 @@ PA.pixelate = (() => {
     const map = countColours(rgba);
     if (k < 1 || map.size <= k) return map.size;
 
-    const keys = [...map.keys()];
-    const cnt = keys.map(x => map.get(x));
-    const lab = keys.map(x => {
+    const U = map.size;
+    const keys = new Int32Array(U), cnt = new Float64Array(U);
+    { let i = 0; for (const [key, c] of map) { keys[i] = key; cnt[i] = c; i++; } }
+    // 顏色一律攤平成 Float64Array(3U)：一張圖可以有十幾萬個相異色，
+    // array-of-arrays 在下面 U×k×24 的內迴圈裡會慢一個數量級
+    const lab = new Float64Array(U * 3);
+    for (let i = 0; i < U; i++) {
+      const x = keys[i];
       const o = toOklab((x >> 16) & 255, (x >> 8) & 255, x & 255);
-      return [o[0], o[1] * CHROMA_W, o[2] * CHROMA_W];
-    });
+      lab[i * 3] = o[0]; lab[i * 3 + 1] = o[1] * CHROMA_W; lab[i * 3 + 2] = o[2] * CHROMA_W;
+    }
     // 用 sqrt 而不是像素數本身:像素畫裡「面積小但關鍵」的顏色(角色的腳、眼睛高光)
     // 很常見,直接用面積加權會讓它們被大片背景吃掉。
-    const wgt = cnt.map(c => Math.sqrt(c));
+    const wgt = new Float64Array(U);
+    for (let i = 0; i < U; i++) wgt[i] = Math.sqrt(cnt[i]);
 
-    // 從最常見的色起頭,之後每次挑「距離×權重」最大的,避免隨機初始化的不穩定
-    const seed = [cnt.indexOf(Math.max(...cnt))];
-    const dist = new Float64Array(keys.length).fill(Infinity);
+    // 從最常見的色起頭,之後每次挑「距離×權重」最大的,避免隨機初始化的不穩定。
+    // （不能用 Math.max(...cnt)：相異色數破十萬時展開參數列會直接 RangeError）
+    let si = 0;
+    for (let i = 1; i < U; i++) if (cnt[i] > cnt[si]) si = i;
+    const seed = [si];
+    const dist = new Float64Array(U).fill(Infinity);
     for (let n = 1; n < k; n++) {
-      const c = lab[seed[n - 1]];
+      const c = seed[n - 1] * 3, c0 = lab[c], c1 = lab[c + 1], c2 = lab[c + 2];
       let bi = 0, bv = -1;
-      for (let i = 0; i < keys.length; i++) {
-        const d = (lab[i][0] - c[0]) ** 2 + (lab[i][1] - c[1]) ** 2 + (lab[i][2] - c[2]) ** 2;
+      for (let i = 0; i < U; i++) {
+        const p = i * 3;
+        const d = (lab[p] - c0) ** 2 + (lab[p + 1] - c1) ** 2 + (lab[p + 2] - c2) ** 2;
         if (d < dist[i]) dist[i] = d;
         const v = dist[i] * wgt[i];
         if (v > bv) { bv = v; bi = i; }
@@ -465,23 +460,33 @@ PA.pixelate = (() => {
       seed.push(bi);
     }
 
-    let C = seed.map(i => lab[i].slice());
-    const assign = new Int32Array(keys.length);
+    const C = new Float64Array(k * 3);
+    for (let j = 0; j < k; j++) { const p = seed[j] * 3; C[j * 3] = lab[p]; C[j * 3 + 1] = lab[p + 1]; C[j * 3 + 2] = lab[p + 2]; }
+    const assign = new Int32Array(U);
+    const sum = new Float64Array(k * 4);
     for (let it = 0; it < 24; it++) {
-      for (let i = 0; i < keys.length; i++) {
+      let moved = false;
+      for (let i = 0; i < U; i++) {
+        const p = i * 3, l0 = lab[p], l1 = lab[p + 1], l2 = lab[p + 2];
         let bi = 0, bd = Infinity;
         for (let j = 0; j < k; j++) {
-          const d = (lab[i][0] - C[j][0]) ** 2 + (lab[i][1] - C[j][1]) ** 2 + (lab[i][2] - C[j][2]) ** 2;
+          const q = j * 3;
+          const d = (l0 - C[q]) ** 2 + (l1 - C[q + 1]) ** 2 + (l2 - C[q + 2]) ** 2;
           if (d < bd) { bd = d; bi = j; }
         }
-        assign[i] = bi;
+        if (assign[i] !== bi) { assign[i] = bi; moved = true; }
       }
-      const sum = Array.from({ length: k }, () => [0, 0, 0, 0]);
-      for (let i = 0; i < keys.length; i++) {
-        const s = sum[assign[i]], u = wgt[i];
-        s[0] += lab[i][0] * u; s[1] += lab[i][1] * u; s[2] += lab[i][2] * u; s[3] += u;
+      // 分派沒變 = 已收斂，之後每輪都是原地踏步
+      if (!moved && it > 0) break;
+      sum.fill(0);
+      for (let i = 0; i < U; i++) {
+        const p = i * 3, s = assign[i] * 4, u = wgt[i];
+        sum[s] += lab[p] * u; sum[s + 1] += lab[p + 1] * u; sum[s + 2] += lab[p + 2] * u; sum[s + 3] += u;
       }
-      for (let j = 0; j < k; j++) if (sum[j][3]) C[j] = [sum[j][0] / sum[j][3], sum[j][1] / sum[j][3], sum[j][2] / sum[j][3]];
+      for (let j = 0; j < k; j++) {
+        const s = j * 4, t = sum[s + 3];
+        if (t) { C[j * 3] = sum[s] / t; C[j * 3 + 1] = sum[s + 1] / t; C[j * 3 + 2] = sum[s + 2] / t; }
+      }
     }
 
     // 代表色取叢集裡最常見的「原圖既有顏色」,不要用叢集中心 ——
@@ -507,26 +512,37 @@ PA.pixelate = (() => {
   function run(rgba, w, h, opts) {
     const g = opts.grid;
     const px = resample(rgba, w, h, g);
-    const err = reconstructError(rgba, w, h, g, px);
+    // 重建誤差是診斷數字；調顏色上限 / 去背時格線沒變，呼叫端可傳 error:false 跳過
+    const err = opts.error === false ? null : reconstructError(rgba, w, h, g, px);
     const cleared = opts.removeBg ? removeBackground(px) : 0;
     const colours = opts.colours > 0 ? quantize(px, opts.colours) : countColours(px.rgba).size;
     return { px, err, cleared, colours };
   }
 
   /* ---------- 非同步偵測（進度 + 取消） ----------
-     邏輯與 detectGrid 相同，但分段讓出主執行緒，UI 才能畫進度條、回應取消。
+     分段讓出主執行緒，UI 才能畫進度條、回應取消。
      hooks: { onProgress(0..1), cancelled() -> bool }。取消時回傳 null。 */
   async function detectGridAsync(rgba, w, h, hooks = {}) {
     const onProgress = hooks.onProgress || (() => {});
     const cancelled = hooks.cancelled || (() => false);
     const tick = () => new Promise(r => setTimeout(r, 0));
 
-    const ex = edgeEnergy(rgba, w, h, 0), ey = edgeEnergy(rgba, w, h, 1);
+    // 第一次 yield 在任何全圖掃描之前，UI 才能畫出進度條、回應取消
+    onProgress(0);
+    await tick();
+    if (cancelled()) return null;
+    const ex = edgeEnergy(rgba, w, h, 0);
+    onProgress(0.04);
+    await tick();
+    if (cancelled()) return null;
+    const ey = edgeEnergy(rgba, w, h, 1);
+    onProgress(0.08);
+    await tick();
+    if (cancelled()) return null;
     const tx = sum(ex), ty = sum(ey);
 
     async function coarseAxisAsync(E, total, n, base, span) {
-      const lo = Math.min(4, Math.max(2, n / 12));
-      const hi = Math.max(4.5, n / 8);
+      const lo = axisLo(n), hi = axisHi(n);
       const steps = Math.max(1, Math.round((hi - lo) / 0.25));
       let bv = -1, bs = 0, k = 0, last = performance.now();
       for (let s = lo; s <= hi; s += 0.25, k++) {
@@ -548,18 +564,17 @@ PA.pixelate = (() => {
       let k = 0;
       for (let s = Math.max(2, s0 - 0.4); s <= s0 + 0.4; s += 0.02, k++) {
         if (cancelled()) return null;
-        const a = bestPhase(ex, tx, s, 64), b = bestPhase(ey, ty, s, 64);
-        const v = a.score + b.score;
-        if (v > out.score) out = { score: v, s, phx: a.phase, phy: b.phase };
+        const r = scorePair(ex, ey, tx, ty, s);
+        if (r.score > out.score) out = r;
         if ((k & 3) === 0) { onProgress(base + span * Math.min(1, k / steps)); await tick(); }
       }
       return out;
     }
 
-    const cx = await coarseAxisAsync(ex, tx, w, 0, 0.4);
+    const cx = await coarseAxisAsync(ex, tx, w, 0.08, 0.36);
     if (cancelled()) return null;
     if (!cx) { onProgress(1); return null; }
-    const cy = await coarseAxisAsync(ey, ty, h, 0.4, 0.4);
+    const cy = await coarseAxisAsync(ey, ty, h, 0.44, 0.36);
     if (cancelled()) return null;
     if (!cy) { onProgress(1); return null; }
 
@@ -567,19 +582,104 @@ PA.pixelate = (() => {
     if (!ra) return null;
     const rb = await refineAsync(cy.size, 0.9, 0.1);
     if (!rb) return null;
-    const best = ra.score >= rb.score ? ra : rb;
-    const { s, phx, phy } = best;
     onProgress(1);
-
-    return {
-      sx: s, sy: s, phx, phy,
-      nx: Math.max(1, Math.min(512, Math.round((w - phx) / s))),
-      ny: Math.max(1, Math.min(512, Math.round((h - phy) / s))),
-      scoreX: cx.score, scoreY: cy.score,
-    };
+    return packDetected(ra.score >= rb.score ? ra : rb, cx, cy, w, h);
   }
 
-  return { detectGrid, detectGridAsync, resample, reconstructError, removeBackground, backgroundColours,
+  return { detectGridAsync, resample, reconstructError, removeBackground, backgroundColours,
            quantize, countColours, toOklab, run,
            edgeProfiles, buildBounds, uniformBounds, snapBounds, meshBounds };
+})();
+
+/* ---------- 主執行緒：把 detect / run 丟進 Worker；file:// 或 Worker 失敗就回退本執行緒 ---------- */
+(function attachWorkerClient() {
+  if (typeof document === 'undefined') return;
+  const SCRIPT_URL = document.currentScript && document.currentScript.src
+    ? document.currentScript.src : '';
+
+  let wk = null, seq = 0, dying = false, workerFailed = false;
+  const pending = new Map();
+
+  function onMsg(e) {
+    const d = e.data;
+    if (!d || d.id == null) return;
+    const p = pending.get(d.id);
+    if (!p) return;
+    if (d.type === 'progress') { if (p.onProgress) p.onProgress(d.f); return; }
+    pending.delete(d.id);
+    if (d.type === 'error') p.reject(Object.assign(new Error(d.message || 'pixelate worker'), { cancelled: !!d.cancelled }));
+    else p.resolve(d.result);
+  }
+
+  function spawn() {
+    if (workerFailed) return false;
+    if (wk) return true;
+    if (!SCRIPT_URL || typeof Worker === 'undefined') { workerFailed = true; return false; }
+    try {
+      wk = new Worker(new URL('pixelate-worker.js', SCRIPT_URL));
+      wk.onmessage = onMsg;
+      wk.onerror = () => {
+        if (dying) return;
+        for (const p of pending.values()) p.reject(new Error('pixelate worker error'));
+        pending.clear();
+        try { wk.terminate(); } catch {}
+        wk = null;
+        workerFailed = true;
+      };
+      return true;
+    } catch {
+      workerFailed = true;
+      wk = null;
+      return false;
+    }
+  }
+
+  function post(op, payload, hooks) {
+    if (!spawn()) return null;
+    const id = ++seq;
+    const src = payload.rgba;
+    const copy = src ? (src instanceof Uint8ClampedArray ? src.slice() : Uint8ClampedArray.from(src)) : null;
+    const msg = { id, op, w: payload.w, h: payload.h, opts: payload.opts, grid: payload.grid, rgba: copy };
+    return new Promise((resolve, reject) => {
+      pending.set(id, { resolve, reject, onProgress: hooks && hooks.onProgress });
+      try {
+        if (copy) wk.postMessage(msg, [copy.buffer]);
+        else wk.postMessage(msg);
+      } catch (err) {
+        pending.delete(id);
+        reject(err);
+      }
+    });
+  }
+
+  function fallback(op, payload, hooks) {
+    if (op === 'detect') return PA.pixelate.detectGridAsync(payload.rgba, payload.w, payload.h, hooks);
+    if (op === 'run') return PA.pixelate.run(payload.rgba, payload.w, payload.h, payload.opts);
+    if (op === 'score') {
+      const small = PA.pixelate.resample(payload.rgba, payload.w, payload.h, payload.grid);
+      return PA.pixelate.reconstructError(payload.rgba, payload.w, payload.h, payload.grid, small);
+    }
+    throw new Error('未知的 pixelate 操作：' + op);
+  }
+
+  PA.pixelate.callAsync = async function(op, payload, hooks) {
+    hooks = hooks || {};
+    const job = post(op, payload, hooks);
+    if (job) {
+      try { return await job; }
+      catch (e) {
+        if (e.cancelled) return null;
+      }
+    }
+    return fallback(op, payload, hooks);
+  };
+
+  PA.pixelate.cancelJobs = function() {
+    dying = true;
+    for (const p of pending.values())
+      p.reject(Object.assign(new Error('cancelled'), { cancelled: true }));
+    pending.clear();
+    if (wk) { try { wk.terminate(); } catch {} wk = null; }
+    dying = false;
+  };
 })();
