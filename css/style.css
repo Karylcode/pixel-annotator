@@ -186,7 +186,6 @@ main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .card .cicon { color: var(--accent-fg); display: block; }
 .card strong { font-size: var(--fs-base); font-weight: 600; color: var(--fg-1); }
 .card .sub { line-height: 1.6; }
-.samples { font-size: var(--fs-sm); color: var(--fg-2); display: flex; gap: var(--sp-2); align-items: center; }
 
 /* 無圖時：面板降到 60%，讓入口卡片成為唯一焦點 */
 body.noimg .panel { opacity: .6; }
@@ -865,7 +864,6 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
   .cards { flex-direction: column; width: 100%; }
   .card { width: 100%; flex-direction: row; text-align: left; align-items: center; padding: var(--sp-3); gap: var(--sp-3); }
   .card .sub br { display: none; }
-  .samples { flex-wrap: wrap; justify-content: center; }
   .pxpane canvas { max-height: 34vh; }
   #m-text { min-height: 200px; }
   .keygrid { grid-template-columns: 1fr; }

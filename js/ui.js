@@ -1172,74 +1172,6 @@ PA.ui = (() => {
     return name;
   }
 
-  /* ---------- 範例圖（空狀態用） ---------- */
-
-  const SAMPLE_SWORD = {
-    name: '範例-劍',
-    palette: { '#': '#dfe6ee', 'b': '#9aa7b4', 'g': '#ffb224', 'h': '#8e5a3a', 'p': '#f76808' },
-    rows: [
-      '.......##.......',
-      '......#bb#......',
-      '......#bb#......',
-      '......#bb#......',
-      '......#bb#......',
-      '......#bb#......',
-      '......#bb#......',
-      '......#bb#......',
-      '......#bb#......',
-      '......#bb#......',
-      '..gggggggggggg..',
-      '......hhh.......',
-      '......hhh.......',
-      '......hhh.......',
-      '.....ppppp......',
-      '.....ppppp......',
-    ],
-  };
-  const SAMPLE_POTION = {
-    name: '範例-藥水',
-    palette: { '#': '#2e1c2c', 'g': '#a18072', 'l': '#6e56cf' },
-    rows: [
-      '..........####..........',
-      '.........#ggg#..........',
-      '.........#ggg#..........',
-      '.........####...........',
-      '........#....#..........',
-      '.......#......#.........',
-      '......#........#........',
-      '.....#..........#.......',
-      '....#............#......',
-      '...#..............#.....',
-      '...#..............#.....',
-      '..#................#....',
-      '..#...llllllllll...#....',
-      '..#..llllllllllll..#....',
-      '..#.llllllllllllll.#....',
-      '..#.llllllllllllll.#....',
-      '..#.llllllllllllll.#....',
-      '..#..llllllllllll..#....',
-      '..#...llllllllll...#....',
-      '...#............#.......',
-      '....#..........#........',
-      '.....#........#.........',
-      '......########..........',
-      '........................',
-    ],
-  };
-
-  function loadSample(spec) {
-    const rows = spec.rows, h = rows.length, w = rows[0].length;
-    const rgba = new Uint8ClampedArray(w * h * 4);
-    rows.forEach((row, y) => [...row].forEach((ch, x) => {
-      const c = spec.palette[ch];
-      if (c) rgba.set(codec.hex2rgba(c), (y * w + x) * 4);
-    }));
-    store.addBitmap(spec.name, codec.bitmapFromRgba(w, h, rgba));
-    store.select(S.imgs.length - 1);
-    fit(); renderAll(); save_();
-    toast('已載入範例 ' + spec.name, { kind: 'success' });
-  }
-
   /* ═══════════ 貼上視窗 ═══════════ */
 
   const openPaste = (text, err) => {
@@ -2552,8 +2484,6 @@ PA.ui = (() => {
     $('card-open').onclick = () => $('file').click();
     $('card-paste').onclick = () => openPaste(null, '');
     $('card-pixelate').onclick = openPixelate;
-    $('sample-sword').onclick = () => loadSample(SAMPLE_SWORD);
-    $('sample-potion').onclick = () => loadSample(SAMPLE_POTION);
 
     /* ---- 貼上視窗 ---- */
     $('m-close').onclick = closePaste;
