@@ -7,6 +7,22 @@
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body data-mode="annotate">
+<svg xmlns="http://www.w3.org/2000/svg" id="icons" aria-hidden="true" focusable="false">
+  <symbol id="i-open" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3v9m0 0L6.5 8.5M10 12l3.5-3.5"/><path d="M3.5 14.5v1.5a1.5 1.5 0 001.5 1.5h10a1.5 1.5 0 001.5-1.5v-1.5"/></symbol>
+  <symbol id="i-paste" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4.5" width="10" height="13" rx="1.5"/><path d="M7.5 4.5a2.5 2.5 0 015 0"/><path d="M8 9h4M8 12h4"/></symbol>
+  <symbol id="i-pixelate" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.5l1.7 4.6 4.6 1.7-4.6 1.7L10 15.1l-1.7-4.6-4.6-1.7 4.6-1.7z"/><path d="M16.5 13.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></symbol>
+  <symbol id="i-brush" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13.6 3.2l3.2 3.2-7.3 7.3H6.3v-3.2z"/><path d="M4 17h12"/></symbol>
+  <symbol id="i-wand" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11.6 5.9l2.5 2.5-8.2 8.2-2.5-2.5z"/><path d="M14.4 3.1v2.6M17.9 6.6h-2.6M16.9 2.6l-1.7 1.7"/></symbol>
+  <symbol id="i-same" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.8" y="2.8" width="6" height="6" rx="1"/><rect x="11.2" y="2.8" width="6" height="6" rx="1"/><rect x="2.8" y="11.2" width="6" height="6" rx="1"/><rect x="11.2" y="11.2" width="6" height="6" rx="1" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-erase" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.4 15.6H6.1L3.3 12.8a1.2 1.2 0 010-1.7l6.4-6.4a1.2 1.2 0 011.7 0l3.6 3.6a1.2 1.2 0 010 1.7l-5.6 5.6z"/><path d="M7.2 7.6l4.8 4.8M4.6 17h11.8"/></symbol>
+  <symbol id="i-draw" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="6" height="6" rx="1"/><path d="M11 5h6M11 9h6M3 13h14M3 17h14"/></symbol>
+  <symbol id="i-pick" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16.4 3.6a2 2 0 00-2.8 0l-1.4 1.4-1-1-1.4 1.4 5.8 5.8 1.4-1.4-1-1 1.4-1.4a2 2 0 000-2.8z"/><path d="M11.6 8.4L4.4 15.6 3.6 18l2.4-.8 7.2-7.2"/></symbol>
+  <symbol id="i-epix" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="13" height="13" rx="1.5"/><path d="M6 6l8 8M14 6l-8 8"/></symbol>
+  <symbol id="i-crop" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.2 1.8v12h12"/><path d="M1.8 6.2h12v12"/></symbol>
+  <symbol id="i-view-img" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3.5" width="15" height="13" rx="1.5"/><circle cx="7" cy="8" r="1.6"/><path d="M3 14.5l4-3.5 3 2.5 4-4 3 3.5"/></symbol>
+  <symbol id="i-view-parts" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.8l7 3.9v7.8l-7 3.9-7-3.9V6.7z"/><path d="M10 10.4V18M3 6.7l7 3.7 7-3.7"/></symbol>
+  <symbol id="i-view-grid" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.8" y="2.8" width="14.4" height="14.4" rx="1"/><path d="M7.6 2.8v14.4M12.4 2.8v14.4M2.8 7.6h14.4M2.8 12.4h14.4"/></symbol>
+</svg>
 
 <!-- ═══ 標題列：檔案 · 像素化 │ 檔名 │ 復原重做 · 縮放 · 快捷鍵 ═══ -->
 <header>
@@ -37,21 +53,22 @@
 <main>
   <!-- ═══ 畫布區：畫布鋪滿，面板浮在上面 ═══ -->
   <div id="stagewrap">
-    <div id="stage">
+    <!-- 畫布區可聚焦：鍵盤使用者才能到得了、方向鍵才能捲動 -->
+    <div id="stage" tabindex="0" aria-label="畫布區（可捲動；工具操作以滑鼠或觸控進行）">
       <div id="drop">
         <div class="cards">
           <button class="card" id="card-open">
-            <span class="cicon" aria-hidden="true"><svg viewBox="0 0 20 20" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3v9m0 0L6.5 8.5M10 12l3.5-3.5"/><path d="M3.5 14.5v1.5a1.5 1.5 0 001.5 1.5h10a1.5 1.5 0 001.5-1.5v-1.5"/></svg></span>
+            <span class="cicon" aria-hidden="true"><svg class="ico" viewBox="0 0 20 20" width="26" height="26"><use href="#i-open"/></svg></span>
             <strong>拖入圖片</strong>
             <span class="sub">PNG / GIF / BMP / WebP / JPEG<br>或點選開啟</span>
           </button>
           <button class="card" id="card-paste">
-            <span class="cicon" aria-hidden="true"><svg viewBox="0 0 20 20" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4.5" width="10" height="13" rx="1.5"/><path d="M7.5 4.5a2.5 2.5 0 015 0"/><path d="M8 9h4M8 12h4"/></svg></span>
+            <span class="cicon" aria-hidden="true"><svg class="ico" viewBox="0 0 20 20" width="26" height="26"><use href="#i-paste"/></svg></span>
             <strong>貼上 JSON / JS</strong>
             <span class="sub">Ctrl+V 直接貼上<br>palette · hex · rgba</span>
           </button>
           <button class="card" id="card-pixelate">
-            <span class="cicon" aria-hidden="true"><svg viewBox="0 0 20 20" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.5l1.7 4.6 4.6 1.7-4.6 1.7L10 15.1l-1.7-4.6-4.6-1.7 4.6-1.7z"/><path d="M16.5 13.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></svg></span>
+            <span class="cicon" aria-hidden="true"><svg class="ico" viewBox="0 0 20 20" width="26" height="26"><use href="#i-pixelate"/></svg></span>
             <strong>像素化 AI 圖</strong>
             <span class="sub">把 AI 生成的偽像素圖<br>還原成真正的像素圖</span>
           </button>
@@ -62,7 +79,7 @@
         </div>
         <div class="sub">支援 PNG GIF BMP WebP JPEG · JSON（palette / hex / rgba）</div>
       </div>
-      <div id="wrapcv" style="display:none"><canvas id="cv" role="img" aria-label="像素畫布"></canvas></div>
+      <div id="wrapcv" style="display:none"><canvas id="cv" role="application" aria-label="像素畫布"></canvas></div>
     </div>
 
     <!-- 畫布左上角脈絡標籤（HUD）：不用離開畫布就能確認目前狀態 -->
@@ -70,12 +87,12 @@
 
     <!-- ═══ 左欄：模式 · 工具 · 工具選項 · 影像 · 檢視 ═══ -->
     <div class="rail panel">
-      <!-- 行動版抽屜把手（桌面隱藏） -->
-      <div class="sheethandle" aria-hidden="true"></div>
+      <!-- 行動版抽屜把手（桌面隱藏）：是真的按鈕，鍵盤 / 輔助科技也能關 -->
+      <button type="button" class="sheethandle" aria-label="關閉面板"></button>
       <div class="grp grp-mode">
         <div class="segs modesw" id="modesw" role="tablist" aria-label="模式切換">
-          <button data-mode="annotate" class="on" role="tab" title="標註模式：在圖上標出各部件的範圍（切過來時工具會換成筆刷 B）">標註</button>
-          <button data-mode="draw" role="tab" title="繪圖模式：直接修改像素（切過來時工具會換成繪圖 D）">繪圖</button>
+          <button data-mode="annotate" class="on" role="tab" aria-selected="true" title="標註模式：在圖上標出各部件的範圍（切過來時工具會換成筆刷 B）">標註</button>
+          <button data-mode="draw" role="tab" aria-selected="false" title="繪圖模式：直接修改像素（切過來時工具會換成繪圖 D）">繪圖</button>
         </div>
       </div>
 
@@ -83,19 +100,19 @@
         <div class="grouplabel">工具</div>
         <div class="tools">
           <button class="toolbtn on" data-tool="brush" title="筆刷 — 逐格塗上作用中部件（B）">
-            <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.6 3.2l3.2 3.2-7.3 7.3H6.3v-3.2z"/><path d="M4 17h12"/></svg>
+            <svg class="ico" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><use href="#i-brush"/></svg>
             <span class="tname">筆刷</span><kbd>B</kbd>
           </button>
           <button class="toolbtn" data-tool="wand" title="魔棒 — 點一下選取相連的同色區域（W）">
-            <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.6 5.9l2.5 2.5-8.2 8.2-2.5-2.5z"/><path d="M14.4 3.1v2.6M17.9 6.6h-2.6M16.9 2.6l-1.7 1.7"/></svg>
+            <svg class="ico" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><use href="#i-wand"/></svg>
             <span class="tname">魔棒</span><kbd>W</kbd>
           </button>
           <button class="toolbtn" data-tool="same" title="同色全選 — 選取整張圖裡相同的顏色（S）">
-            <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.8" y="2.8" width="6" height="6" rx="1"/><rect x="11.2" y="2.8" width="6" height="6" rx="1"/><rect x="2.8" y="11.2" width="6" height="6" rx="1"/><rect x="11.2" y="11.2" width="6" height="6" rx="1" fill="currentColor" stroke="none"/></svg>
+            <svg class="ico" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><use href="#i-same"/></svg>
             <span class="tname">同色全選</span><kbd>S</kbd>
           </button>
           <button class="toolbtn" data-tool="erase" title="擦掉標註 — 把格子清回未標註（E）">
-            <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.4 15.6H6.1L3.3 12.8a1.2 1.2 0 010-1.7l6.4-6.4a1.2 1.2 0 011.7 0l3.6 3.6a1.2 1.2 0 010 1.7l-5.6 5.6z"/><path d="M7.2 7.6l4.8 4.8M4.6 17h11.8"/></svg>
+            <svg class="ico" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><use href="#i-erase"/></svg>
             <span class="tname">擦掉標註</span><kbd>E</kbd>
           </button>
         </div>
@@ -105,15 +122,15 @@
         <div class="grouplabel">工具</div>
         <div class="tools">
           <button class="toolbtn" data-tool="draw" title="繪圖 — 用前景色塗像素（D）">
-            <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="6" height="6" rx="1"/><path d="M11 5h6M11 9h6M3 13h14M3 17h14"/></svg>
+            <svg class="ico" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><use href="#i-draw"/></svg>
             <span class="tname">繪圖</span><kbd>D</kbd>
           </button>
           <button class="toolbtn" data-tool="pick" title="滴管 — 吸取畫布上的顏色（I）；任何繪圖工具下 Alt+點 也可以吸取">
-            <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.4 3.6a2 2 0 00-2.8 0l-1.4 1.4-1-1-1.4 1.4 5.8 5.8 1.4-1.4-1-1 1.4-1.4a2 2 0 000-2.8z"/><path d="M11.6 8.4L4.4 15.6 3.6 18l2.4-.8 7.2-7.2"/></svg>
+            <svg class="ico" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><use href="#i-pick"/></svg>
             <span class="tname">滴管</span><kbd>I</kbd>
           </button>
           <button class="toolbtn" data-tool="epix" title="擦成透明 — 把像素清成透明（X）">
-            <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="13" height="13" rx="1.5"/><path d="M6 6l8 8M14 6l-8 8"/></svg>
+            <svg class="ico" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><use href="#i-epix"/></svg>
             <span class="tname">擦成透明</span><kbd>X</kbd>
           </button>
         </div>
@@ -138,11 +155,11 @@
         <div class="grouplabel">影像</div>
         <div class="tools">
           <button class="toolbtn" data-tool="crop" title="裁切 — 框選要保留的範圍（C）">
-            <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.2 1.8v12h12"/><path d="M1.8 6.2h12v12"/></svg>
+            <svg class="ico" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><use href="#i-crop"/></svg>
             <span class="tname">裁切</span><kbd>C</kbd>
           </button>
           <button class="toolbtn" id="b-pixelate2" title="像素化 — 把 AI 生成的偽像素圖還原成真正的像素圖">
-            <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2.5l1.7 4.6 4.6 1.7-4.6 1.7L10 15.1l-1.7-4.6-4.6-1.7 4.6-1.7z"/><path d="M16.5 13.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></svg>
+            <svg class="ico" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><use href="#i-pixelate"/></svg>
             <span class="tname">像素化</span>
           </button>
         </div>
@@ -152,13 +169,13 @@
         <div class="grouplabel">檢視</div>
         <div class="viewrow">
           <button id="v-img" class="btn icon on" title="原圖（按住 H 暫時只看原圖）" aria-pressed="true">
-            <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="1.5"/><circle cx="7" cy="8" r="1.6"/><path d="M3 14.5l4-3.5 3 2.5 4-4 3 3.5"/></svg>
+            <svg class="ico" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><use href="#i-view-img"/></svg>
           </button>
           <button id="v-parts" class="btn icon on m-annotate" title="部件色" aria-pressed="true">
-            <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2.8l7 3.9v7.8l-7 3.9-7-3.9V6.7z"/><path d="M10 10.4V18M3 6.7l7 3.7 7-3.7"/></svg>
+            <svg class="ico" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><use href="#i-view-parts"/></svg>
           </button>
           <button id="v-grid" class="btn icon on" title="格線" aria-pressed="true">
-            <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.8" y="2.8" width="14.4" height="14.4" rx="1"/><path d="M7.6 2.8v14.4M12.4 2.8v14.4M2.8 7.6h14.4M2.8 12.4h14.4"/></svg>
+            <svg class="ico" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><use href="#i-view-grid"/></svg>
           </button>
         </div>
       </div>
@@ -167,16 +184,16 @@
     <!-- ═══ 右欄：分頁（部件 / 顏色 / 圖片 / 匯出） ═══ -->
     <aside class="panel">
       <!-- 行動版抽屜把手（桌面隱藏） -->
-      <div class="sheethandle" aria-hidden="true"></div>
+      <button type="button" class="sheethandle" aria-label="關閉面板"></button>
       <div class="tabbar" role="tablist" aria-label="右欄分頁">
-        <button data-tab="parts" class="on" role="tab" title="部件清單">部件</button>
-        <button data-tab="colors" role="tab" title="前景色與調色盤">顏色</button>
-        <button data-tab="images" role="tab" title="已開啟的圖片">圖片</button>
-        <button data-tab="export" role="tab" title="匯出圖片與資料">匯出</button>
+        <button data-tab="parts" id="tabbtn-parts" class="on" role="tab" aria-selected="true" aria-controls="tab-parts" title="部件清單">部件</button>
+        <button data-tab="colors" id="tabbtn-colors" role="tab" aria-selected="false" aria-controls="tab-colors" tabindex="-1" title="前景色與調色盤">顏色</button>
+        <button data-tab="images" id="tabbtn-images" role="tab" aria-selected="false" aria-controls="tab-images" tabindex="-1" title="已開啟的圖片">圖片</button>
+        <button data-tab="export" id="tabbtn-export" role="tab" aria-selected="false" aria-controls="tab-export" tabindex="-1" title="匯出圖片與資料">匯出</button>
         <button id="b-collapse" class="btn icon" title="收合面板（Tab）" aria-label="收合面板">⟨</button>
       </div>
 
-      <div class="tabpage" id="tab-parts" role="tabpanel">
+      <div class="tabpage" id="tab-parts" role="tabpanel" aria-labelledby="tabbtn-parts">
         <div class="summary">
           <div class="sumline"><span id="sum-text" class="mono">—</span>
             <button id="b-hilite" class="btn ghost sm" title="把還沒標註的格子用斑馬紋標出來 3 秒">反白未標註</button>
@@ -193,7 +210,7 @@
         </div>
       </div>
 
-      <div class="tabpage hide" id="tab-colors" role="tabpanel">
+      <div class="tabpage hide" id="tab-colors" role="tabpanel" aria-labelledby="tabbtn-colors">
         <div class="grouplabel">前景色</div>
         <div class="colorrow">
           <span class="curprev">
@@ -210,14 +227,14 @@
         <div class="tabfoot"></div>
       </div>
 
-      <div class="tabpage hide" id="tab-images" role="tabpanel">
+      <div class="tabpage hide" id="tab-images" role="tabpanel" aria-labelledby="tabbtn-images">
         <div id="imglist"></div>
         <div class="tabfoot">
           <button id="b-addimg" class="btn secondary wide">＋ 新增圖片…</button>
         </div>
       </div>
 
-      <div class="tabpage hide" id="tab-export" role="tabpanel">
+      <div class="tabpage hide" id="tab-export" role="tabpanel" aria-labelledby="tabbtn-export">
         <div class="grouplabel">圖片</div>
         <div class="xrow" id="x-png">
           <div class="xinfo">
@@ -267,18 +284,19 @@
         <div class="tabfoot"></div>
       </div>
 
-      <!-- 收合時的 48px 圖示欄 -->
+      <!-- 收合時的 48px 圖示欄（圖示字元不是可讀的名稱，aria-label 才是） -->
       <div class="railmini">
-        <button data-tab="parts" class="btn icon" title="部件">▤</button>
-        <button data-tab="colors" class="btn icon" title="顏色">◐</button>
-        <button data-tab="images" class="btn icon" title="圖片">▦</button>
-        <button data-tab="export" class="btn icon" title="匯出">⤓</button>
+        <button data-tab="parts" class="btn icon" title="部件" aria-label="部件"><span aria-hidden="true">▤</span></button>
+        <button data-tab="colors" class="btn icon" title="顏色" aria-label="顏色"><span aria-hidden="true">◐</span></button>
+        <button data-tab="images" class="btn icon" title="圖片" aria-label="圖片"><span aria-hidden="true">▦</span></button>
+        <button data-tab="export" class="btn icon" title="匯出" aria-label="匯出"><span aria-hidden="true">⤓</span></button>
         <button id="b-expand" class="btn icon" title="展開面板（Tab）" aria-label="展開面板">⟩</button>
       </div>
     </aside>
 
     <!-- 行動版：抽屜打開時蓋在畫布上的遮罩（點一下關抽屜；桌面隱藏） -->
     <div id="scrim"></div>
+    <div id="drop-hint" aria-hidden="true">放開以開啟</div>
   </div>
 
   <!-- ═══ 裁切列：停靠在狀態列位置，不遮畫布 ═══ -->
@@ -307,33 +325,33 @@
        工具鈕沿用 .toolbtn + data-tool，setTool() / bind() 會自動同步作用中狀態與點擊 -->
   <nav id="dock" aria-label="工具列">
     <div class="segs modesw" role="tablist" aria-label="模式切換">
-      <button data-mode="annotate" class="on" role="tab" title="標註模式">標註</button>
-      <button data-mode="draw" role="tab" title="繪圖模式">繪圖</button>
+      <button data-mode="annotate" class="on" role="tab" aria-selected="true" title="標註模式">標註</button>
+      <button data-mode="draw" role="tab" aria-selected="false" title="繪圖模式">繪圖</button>
     </div>
     <div class="dtools">
       <button class="toolbtn m-annotate on" data-tool="brush" title="筆刷（B）" aria-label="筆刷">
-        <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.6 3.2l3.2 3.2-7.3 7.3H6.3v-3.2z"/><path d="M4 17h12"/></svg>
+        <svg class="ico" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><use href="#i-brush"/></svg>
       </button>
       <button class="toolbtn m-annotate" data-tool="wand" title="魔棒（W）" aria-label="魔棒">
-        <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.6 5.9l2.5 2.5-8.2 8.2-2.5-2.5z"/><path d="M14.4 3.1v2.6M17.9 6.6h-2.6M16.9 2.6l-1.7 1.7"/></svg>
+        <svg class="ico" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><use href="#i-wand"/></svg>
       </button>
       <button class="toolbtn m-annotate" data-tool="same" title="同色全選（S）" aria-label="同色全選">
-        <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.8" y="2.8" width="6" height="6" rx="1"/><rect x="11.2" y="2.8" width="6" height="6" rx="1"/><rect x="2.8" y="11.2" width="6" height="6" rx="1"/><rect x="11.2" y="11.2" width="6" height="6" rx="1" fill="currentColor" stroke="none"/></svg>
+        <svg class="ico" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><use href="#i-same"/></svg>
       </button>
       <button class="toolbtn m-annotate" data-tool="erase" title="擦掉標註（E）" aria-label="擦掉標註">
-        <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.4 15.6H6.1L3.3 12.8a1.2 1.2 0 010-1.7l6.4-6.4a1.2 1.2 0 011.7 0l3.6 3.6a1.2 1.2 0 010 1.7l-5.6 5.6z"/><path d="M7.2 7.6l4.8 4.8M4.6 17h11.8"/></svg>
+        <svg class="ico" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><use href="#i-erase"/></svg>
       </button>
       <button class="toolbtn m-draw" data-tool="draw" title="繪圖（D）" aria-label="繪圖">
-        <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="6" height="6" rx="1"/><path d="M11 5h6M11 9h6M3 13h14M3 17h14"/></svg>
+        <svg class="ico" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><use href="#i-draw"/></svg>
       </button>
       <button class="toolbtn m-draw" data-tool="pick" title="滴管（I）" aria-label="滴管">
-        <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.4 3.6a2 2 0 00-2.8 0l-1.4 1.4-1-1-1.4 1.4 5.8 5.8 1.4-1.4-1-1 1.4-1.4a2 2 0 000-2.8z"/><path d="M11.6 8.4L4.4 15.6 3.6 18l2.4-.8 7.2-7.2"/></svg>
+        <svg class="ico" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><use href="#i-pick"/></svg>
       </button>
       <button class="toolbtn m-draw" data-tool="epix" title="擦成透明（X）" aria-label="擦成透明">
-        <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="13" height="13" rx="1.5"/><path d="M6 6l8 8M14 6l-8 8"/></svg>
+        <svg class="ico" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><use href="#i-epix"/></svg>
       </button>
       <button class="toolbtn" data-tool="crop" title="裁切（C）" aria-label="裁切">
-        <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.2 1.8v12h12"/><path d="M1.8 6.2h12v12"/></svg>
+        <svg class="ico" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><use href="#i-crop"/></svg>
       </button>
     </div>
     <button id="d-fit" class="btn icon" title="貼合視窗" aria-label="貼合視窗">⛶</button>
@@ -403,7 +421,7 @@
         <div class="pxcmp" id="px-cmp">
           <canvas id="px-out"></canvas>
           <canvas id="px-cmpsrc" aria-hidden="true"></canvas>
-          <div class="pxdiv" aria-hidden="true"></div>
+          <div class="pxdiv" aria-hidden="true"><span class="pxlab pxlab-src">原圖</span><span class="pxlab pxlab-out">結果</span></div>
         </div>
         <input type="range" id="px-split" class="hide" min="0" max="100" value="50" aria-label="比對分割位置（左：原圖，右：結果）" title="左：原圖 · 右：結果">
       </div>
@@ -430,8 +448,8 @@
         <div class="pxgroup">
           <div class="grouplabel">③ 顏色與背景</div>
           <div class="krow">
-            <input type="range" id="px-k-range" min="0" max="64" value="24" aria-label="顏色上限">
-            <input type="number" id="px-k" min="0" max="256" value="24" aria-label="顏色上限（0 = 不減色）">
+            <input type="range" id="px-k-range" min="0" max="64" value="48" aria-label="顏色上限">
+            <input type="number" id="px-k" min="0" max="256" value="48" aria-label="顏色上限（0 = 不減色）">
           </div>
           <div class="sub" id="px-k-note">顏色上限（0 = 不減色）</div>
           <label class="chk"><input type="checkbox" id="px-bg" checked>移除假透明棋盤格</label>
@@ -500,7 +518,7 @@
         <div class="krow2"><kbd>F2</kbd><span>改名作用中部件</span></div>
         <div class="krow2"><kbd>Delete</kbd><span>刪除作用中部件</span></div>
         <div class="krow2"><kbd>[</kbd><kbd>]</kbd><span>筆刷 − / ＋</span></div>
-        <div class="krow2"><kbd>Tab</kbd><span>收合 / 展開面板</span></div>
+        <div class="krow2"><kbd>Tab</kbd><span>收合 / 展開面板（焦點不在控制項上時）</span></div>
       </div>
       <div>
         <div class="grouplabel">一般</div>

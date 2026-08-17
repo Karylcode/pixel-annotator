@@ -7,13 +7,13 @@
   --line-1: #2a2a38; --line-2: #1e1e28;
   /* 文字 */
   --fg-1: #eceaf4; --fg-2: #c9c7db; --fg-3: #a3a1b8;
-  /* 語意 */
-  --accent: #ff9148; --accent-hover: #ffa262; --accent-ink: #241206; --accent-soft: #ff91481f;
-  --focus: #8ab4ff; --select: #7aa7ff;
-  --danger: #ff6b5e; --danger-bg: #ff6b5e1f;
-  --warn: #ffcf5a;   --warn-bg: #ffcf5a1f;
-  --success: #5fd18a; --success-bg: #5fd18a1f;
-  --info: #7aa7ff;   --info-bg: #7aa7ff1f;
+  /* 語意（--x 用在底色 / 色條 / 邊框，--x-fg 用在文字與圖示 —— 淺色主題文字要更深才夠對比） */
+  --accent: #ff9148; --accent-hover: #ffa262; --accent-ink: #241206; --accent-soft: #ff91481f; --accent-fg: #ff9148;
+  --focus: #8ab4ff; --focus-ink: #0b0b10; --select: #7aa7ff;
+  --danger: #ff6b5e; --danger-bg: #ff6b5e1f; --danger-fg: #ff6b5e;
+  --warn: #ffcf5a;   --warn-bg: #ffcf5a1f;   --warn-fg: #ffcf5a;
+  --success: #5fd18a; --success-bg: #5fd18a1f; --success-fg: #5fd18a;
+  --info: #7aa7ff;   --info-bg: #7aa7ff1f;   --info-fg: #7aa7ff;
   /* 字級（只用這五級） */
   --fs-data: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-base: 14px; --fs-title: 16px;
   --font: "Segoe UI", "Noto Sans TC", system-ui, sans-serif;
@@ -39,6 +39,9 @@
   --bg: #f4f4f8; --surface-1: #ffffff; --surface-2: #f0f0f5; --surface-3: #e6e6ee;
   --line-1: #d8d8e2; --line-2: #e6e6ee; --fg-1: #1b1b24; --fg-2: #3f3f4d; --fg-3: #6a6a7c;
   --accent-soft: #ff914833;
+  /* 語意色當文字用時要夠深（白底 ≥ 4.5:1）；底色 / 色條沿用原本的亮色 */
+  --accent-fg: #b4480a; --danger-fg: #b8291a; --warn-fg: #7a5600; --success-fg: #14733f; --info-fg: #2b57c4;
+  --focus: #2b57c4; --focus-ink: #ffffff; --select: #2b57c4;
   --checker-a: #d9d9e3; --checker-b: #ececf2; --sw-line: #00000026;
   --scroll-thumb: #00000033; --scroll-thumb-hover: #00000066;
   --shadow-2: 0 16px 40px #00000022; --shadow-3: 0 24px 60px #00000026;
@@ -57,6 +60,8 @@ button, input, select, textarea { font: inherit; }
 .sub { color: var(--fg-3); font-size: var(--fs-data); }
 .grow { flex: 1; }
 .hide { display: none !important; }
+#icons { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+svg.ico { display: block; flex: none; }
 
 /* ═══ 捲軸：細、圓角、透明軌道，跟主題走 ═══
    Chromium / Safari 走 ::-webkit-scrollbar（滑塊用透明邊框內縮成 6px 藥丸）；
@@ -92,14 +97,14 @@ button, input, select, textarea { font: inherit; }
 .btn.secondary { background: var(--surface-3); border: 1px solid var(--line-1); color: var(--fg-1); }
 .btn.secondary:hover:not(:disabled) { background: var(--surface-2); }
 .btn.ghost { background: none; }
-.btn.danger { background: none; color: var(--danger); }
-.btn.danger:hover:not(:disabled) { background: var(--danger-bg); color: var(--danger); }
+.btn.danger { background: none; color: var(--danger-fg); }
+.btn.danger:hover:not(:disabled) { background: var(--danger-bg); color: var(--danger-fg); }
 .btn.icon { width: var(--ctl-h-sm); height: var(--ctl-h-sm); padding: 0; font-size: var(--fs-base); flex: none; }
 .btn.wide { width: 100%; }
 .btn.accentline {
-  background: none; border: 1px solid var(--accent); color: var(--accent); font-weight: 600;
+  background: none; border: 1px solid var(--accent-fg); color: var(--accent-fg); font-weight: 600;
 }
-.btn.accentline:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent-hover); }
+.btn.accentline:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent-fg); }
 
 kbd {
   font: var(--fs-data)/1 var(--mono); color: var(--fg-3);
@@ -115,7 +120,7 @@ header {
 }
 @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) header { background: #ffffffcc; } }
 h1 { font-size: var(--fs-base); margin: 0 var(--sp-2) 0 0; font-weight: 600; white-space: nowrap; }
-h1 span { color: var(--accent); }
+h1 span { color: var(--accent-fg); }
 .chip {
   background: var(--surface-2); border: 1px solid var(--line-1); border-radius: var(--r-pill);
   padding: 5px var(--sp-3); font: 500 var(--fs-sm)/1.2 var(--mono); color: var(--fg-1);
@@ -152,14 +157,14 @@ main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   touch-action: none;   /* 拖曳要塗色，不能捲動頁面 */
 }
 #stage.over { outline: 2px dashed var(--focus); outline-offset: -14px; }
-/* 拖檔案進來時的提示：藍色虛線框 + 一句「放開以開啟」 */
-#stagewrap::after {
-  content: "放開以開啟"; position: absolute; left: 50%; top: var(--sp-5); transform: translateX(-50%);
+/* 拖檔案進來時的提示：藍色虛線框 + 一句「放開以開啟」（文案在 HTML，給 AT 讀） */
+#drop-hint {
+  position: absolute; left: 50%; top: var(--sp-5); transform: translateX(-50%);
   padding: var(--sp-1) var(--sp-3); border-radius: var(--r-pill);
-  background: var(--focus); color: #0b0b10; font-size: var(--fs-sm); font-weight: 600;
+  background: var(--focus); color: var(--focus-ink); font-size: var(--fs-sm); font-weight: 600;
   pointer-events: none; opacity: 0; transition: opacity var(--dur-fast) var(--ease); z-index: 5;
 }
-#stagewrap:has(#stage.over)::after { opacity: 1; }
+#stagewrap:has(#stage.over) #drop-hint { opacity: 1; }
 
 /* ═══ 空狀態：三張入口卡片是唯一焦點 ═══ */
 /* 置中於「兩側面板之間」的可用區，而不是整個 stage（面板讓位的 padding 對 absolute 無效） */
@@ -177,7 +182,7 @@ main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   cursor: pointer; transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
 }
 .card:hover { border-color: var(--accent); color: var(--fg-1); transform: translateY(-2px); }
-.card .cicon { color: var(--accent); display: block; }
+.card .cicon { color: var(--accent-fg); display: block; }
 .card strong { font-size: var(--fs-base); font-weight: 600; color: var(--fg-1); }
 .card .sub { line-height: 1.6; }
 .samples { font-size: var(--fs-sm); color: var(--fg-2); display: flex; gap: var(--sp-2); align-items: center; }
@@ -205,6 +210,11 @@ body.noimg .rail .toolbtn#b-pixelate2 { pointer-events: auto; }  /* 像素化本
   border: 1px solid var(--line-1); border-radius: var(--r-lg); backdrop-filter: blur(14px);
   box-shadow: var(--shadow-2);
 }
+/* 筆畫 / 平移進行中：三層 backdrop-filter 疊在畫布上，畫布每次重繪都會重跑整片高斯模糊。
+   互動期間先關掉（面板底色本來就 78–90% 不透明，視覺差異很小），放開再開回來。 */
+body.interacting .panel, body.interacting header, body.interacting #hud { backdrop-filter: none; }
+/* 畫布區可聚焦：焦點框畫在內側，不要撐出捲軸 */
+#stage:focus-visible { outline-offset: -2px; }
 
 /* ---- 左欄 ---- */
 .rail {
@@ -383,6 +393,15 @@ body.aside-closed .railmini {
 .part.dragging { opacity: .4; }
 .part.drop-before { box-shadow: inset 0 2px 0 var(--accent); }
 .part.drop-after { box-shadow: inset 0 -2px 0 var(--accent); }
+.part .grip {
+  position: absolute; left: -6px; top: 0; bottom: 0; width: 14px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--fg-3); cursor: grab; touch-action: none; z-index: 1;
+}
+@media (hover: hover) and (pointer: fine) {
+  .part .grip { opacity: 0; }
+  .part:hover .grip, .part .grip:focus-visible { opacity: 1; }
+}
 
 /* 顏色分頁 */
 .colorrow { display: flex; align-items: center; gap: var(--sp-2); }
@@ -432,7 +451,7 @@ body.aside-closed .railmini {
 .xrow.off .xbtns { pointer-events: none; }
 .xinfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
 .xinfo strong { font-size: var(--fs-md); font-weight: 600; }
-.reason { color: var(--warn); }
+.reason { color: var(--warn-fg); }
 /* 倍率佔滿整行、六段平均分配：跟下載 / 複製擠在同一列會黏在一起 */
 .scalerow { flex: 1 0 100%; display: flex; align-items: center; gap: var(--sp-2); }
 #scalesegs { flex: 1; }
@@ -522,8 +541,8 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
   font: var(--fs-sm)/1.6 var(--mono);
 }
 #m-text:focus { outline: none; border-color: var(--focus); }
-#m-err { color: var(--danger); font-size: var(--fs-sm); min-height: 18px; }
-#m-err button { color: var(--info); background: none; border: none; cursor: pointer; font-size: var(--fs-sm); padding: 0 2px; text-decoration: underline; }
+#m-err { color: var(--danger-fg); font-size: var(--fs-sm); min-height: 18px; }
+#m-err button { color: var(--info-fg); background: none; border: none; cursor: pointer; font-size: var(--fs-sm); padding: 0 2px; text-decoration: underline; }
 
 /* 快捷鍵面板 */
 .keygrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-4); }
@@ -557,19 +576,19 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
   display: block; position: absolute; top: 0; bottom: 0; left: var(--split); width: 2px; margin-left: -1px;
   background: var(--focus); pointer-events: none; box-shadow: 0 0 0 1px #0008;
 }
-.pxcmp.on .pxdiv::before, .pxcmp.on .pxdiv::after {
-  position: absolute; top: var(--sp-2); font: 600 var(--fs-data)/1 var(--font); color: #0b0b10;
+.pxcmp.on .pxdiv .pxlab {
+  position: absolute; top: var(--sp-2); font: 600 var(--fs-data)/1 var(--font); color: var(--focus-ink);
   background: var(--focus); padding: 2px 6px; border-radius: var(--r-pill);
 }
-.pxcmp.on .pxdiv::before { content: "原圖"; right: var(--sp-1); }
-.pxcmp.on .pxdiv::after { content: "結果"; left: var(--sp-1); }
+.pxcmp.on .pxdiv .pxlab-src { right: var(--sp-1); }
+.pxcmp.on .pxdiv .pxlab-out { left: var(--sp-1); }
 #px-split { width: 100%; }
 .pxside { width: 320px; flex: none; display: flex; flex-direction: column; gap: var(--sp-4); }
 .pxgroup { display: flex; flex-direction: column; gap: var(--sp-2); }
 .pxinfo { font-size: var(--fs-sm); color: var(--fg-2); line-height: 1.6; }
 .pxinfo b { color: var(--fg-1); font-weight: 500; }
-.pxinfo .good { color: var(--success); }
-.pxinfo .bad { color: var(--warn); }
+.pxinfo .good { color: var(--success-fg); }
+.pxinfo .bad { color: var(--warn-fg); }
 #px-adv summary { cursor: pointer; font-size: var(--fs-sm); color: var(--fg-3); padding: var(--sp-1) 0; }
 #px-adv summary:hover { color: var(--fg-1); }
 .advgrid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); padding: var(--sp-2) 0; }
@@ -578,7 +597,7 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
 .krow { display: flex; align-items: center; gap: var(--sp-2); }
 .krow input[type=range] { flex: 1; }
 .krow input[type=number] { width: 68px; flex: none; }
-.warnline { color: var(--warn); font-size: var(--fs-sm); }
+.warnline { color: var(--warn-fg); font-size: var(--fs-sm); }
 #px-progress { display: flex; align-items: center; gap: var(--sp-3); }
 .pbar { flex: 1; height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
 #px-pfill { height: 100%; width: 0; background: var(--accent); border-radius: 3px; transition: width var(--dur-fast) linear; }
@@ -634,7 +653,7 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
 .menu .mi:focus { outline: none; }
 .menu .mi:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .menu .mi:disabled { opacity: .4; cursor: default; }
-.menu .mi.danger { color: var(--danger); }
+.menu .mi.danger { color: var(--danger-fg); }
 .menu .mi.danger:hover { background: var(--danger-bg); }
 .menu .mi.on { background: var(--accent-soft); color: var(--fg-1); }
 .menu .mi .msw { width: 14px; height: 14px; border-radius: var(--r-sm); flex: none; border: 1px solid var(--sw-line); }
@@ -675,18 +694,29 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
   #drop { left: 0; right: 0; }                   /* body.aside-closed #stage 的 --pad-r:76px 會漏進來 */
   #hud { max-width: calc(100% - var(--sp-4)); overflow: hidden; }
 
-  /* 標題列：維持單列，放不下就橫捲（保險） */
-  header { padding: 0 var(--sp-3); gap: var(--sp-1); overflow-x: auto; scrollbar-width: none; }
+  /* 標題列：維持單列，放不下就橫捲（保險）；左右避過瀏海 */
+  header {
+    padding: 0 max(var(--sp-3), env(safe-area-inset-right, 0px)) 0 max(var(--sp-3), env(safe-area-inset-left, 0px));
+    gap: var(--sp-1); overflow-x: auto; scrollbar-width: none;
+  }
+  header .btn.icon { width: 44px; height: 44px; }
+  header .btn.icon.narrow { width: 44px; }
   header::-webkit-scrollbar { display: none; }
   header > * { flex: none; }
   #info { flex: 1 1 auto; min-width: 80px; }
 
   /* ── 底部工具列 ── */
+  /* safe-area 的底部內距要給「畫面最底下那一條」：狀態列還在時給狀態列（見下），
+     狀態列被藏起來的斷點（≤560、橫向手機）才輪到 dock */
   #dock {
     display: flex; flex: none; align-items: center; gap: var(--sp-1);
-    height: calc(var(--dock-h) + env(safe-area-inset-bottom, 0px));
-    padding: 0 var(--sp-2) env(safe-area-inset-bottom, 0px);
+    height: var(--dock-h);
+    padding: 0 max(var(--sp-2), env(safe-area-inset-right, 0px)) 0 max(var(--sp-2), env(safe-area-inset-left, 0px));
     background: var(--surface-1); border-top: 1px solid var(--line-2); position: relative; z-index: 7;
+  }
+  #status {
+    height: calc(var(--status-h) + env(safe-area-inset-bottom, 0px));
+    padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
   }
   #dock .modesw { width: auto; flex: none; padding: 2px; }
   #dock .modesw button { flex: none; height: 36px; padding: 0 10px; font: 500 var(--fs-md)/1 var(--font); }
@@ -727,7 +757,10 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
   body.rail-open .rail.panel, body:not(.aside-closed) aside.panel {
     transform: none; visibility: visible; transition-delay: 0s;
   }
-  .sheethandle { display: flex; flex: none; justify-content: center; align-items: center; height: 28px; cursor: pointer; }
+  .sheethandle {
+    display: flex; flex: none; justify-content: center; align-items: center; height: 28px; cursor: pointer;
+    width: 100%; background: none; border: 0; padding: 0; border-radius: var(--r-lg) var(--r-lg) 0 0;   /* 是 <button>：清掉 UA 樣式 */
+  }
   .sheethandle::before { content: ""; width: 40px; height: 4px; border-radius: 2px; background: var(--fg-3); opacity: .6; }
   .tabbar #b-collapse, body.aside-closed .railmini { display: none; }
   /* 桌面「收合」規則會把分頁內容藏起來；抽屜滑下去的過程中內容要還在 */
@@ -749,9 +782,10 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
   .tabpage { padding: var(--sp-3) var(--sp-3) calc(var(--sp-4) + env(safe-area-inset-bottom, 0px)); overscroll-behavior: contain; }
 
   /* 觸控目標 ≥44 */
-  .part { height: 44px; }
-  .part .eye, .part .ic { width: 36px; height: 36px; }
-  .part .sw { width: 28px; height: 28px; }
+  .part { height: 44px; padding-left: 28px; }
+  .part .grip { opacity: 1; width: 28px; left: 0; }
+  .part .eye, .part .ic { width: 44px; height: 44px; }
+  .part .sw { width: 44px; height: 44px; }
   #newpart { min-height: 40px; }
   label.chk { min-height: 32px; }
   label.chk input { width: 18px; height: 18px; }
@@ -780,6 +814,8 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
 @media (max-width: 900px) and (max-height: 480px) {
   .rail.panel, aside.panel, body.aside-closed aside.panel { max-height: 80%; }
   #strip, #status { display: none; }
+  /* 狀態列不在了，safe-area 改由 dock 承擔 */
+  #dock { height: calc(var(--dock-h) + env(safe-area-inset-bottom, 0px)); padding-bottom: env(safe-area-inset-bottom, 0px); }
 }
 
 /* ═══ 手機（≤560px）：省空間 —— 隱藏狀態列、標題列的縮放與 ? 鈕、h1；卡片改橫向列 ═══ */
@@ -787,7 +823,8 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
   #status, h1, #b-keys, header .zoomgrp, header > .grow, #b-pixelate .lbl, #d-fit, #dock [data-tool=crop] { display: none; }
   #b-pixelate { padding: 0 var(--sp-2); }
   #info { flex: 1 1 auto; min-width: 0; max-width: none; text-align: center; }
-  #dock { padding: 0 var(--sp-1) env(safe-area-inset-bottom, 0px); gap: 2px; }
+  /* 狀態列在這個斷點被藏起來：safe-area 改由 dock 承擔 */
+  #dock { height: calc(var(--dock-h) + env(safe-area-inset-bottom, 0px)); padding: 0 max(var(--sp-1), env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(var(--sp-1), env(safe-area-inset-left, 0px)); gap: 2px; }
   #dock .modesw button { padding: 0 8px; }
   #dock .toolbtn, #dock .btn.icon { width: 40px; }   /* 高仍 44；375 寬剛好放 4 工具 + ⋯ + ▤ */
   #dock .dtools { gap: 2px; }
