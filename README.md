@@ -8,7 +8,7 @@
 
 - `js/codec.js`：文字 ⇄ 像素 ⇄ 匯出格式，錯誤訊息改全形標點；新增 `zip()`（純封裝、不壓縮，給「匯出全部」用，無外部依賴）。
 - `js/pixelate.js`：沿用全部演算法，新增 `detectGridAsync()`（分段讓出主執行緒，支援進度條與取消）。
-- `js/store.js`：復原堆疊改為 past / future（**Redo**）、每筆快照帶 label **並連部件清單與選取狀態一起存**（刪除部件 / 匯入標註 / 清空後復原，部件列會一起回來）、`undoOnce()/redoOnce()` 回報是否改了尺寸、`historyLabels()`、新部件**自動配色**、切換圖片記住各自的作用中部件、`save()` 回報配額失敗、新增 `coverage()` / `hasAnnotation()` / `soloShown()` / `selectionMask()`（魔棒 / 同色全選預覽用）。
+- `js/store.js`：復原堆疊改為 past / future（**Redo**）、每筆快照帶 label **並連部件清單與選取狀態一起存**（刪除部件 / 匯入標註 / 清空後復原，部件列會一起回來）、`undoOnce()/redoOnce()` 回報是否改了尺寸、`historyLabels()`、新部件**自動配色**、切換圖片記住各自的作用中部件、`save()` / `persist()` 回報配額失敗、點陣圖進 IndexedDB、新增 `coverage()` / `hasAnnotation()` / `soloShown()` / `selectionMask()`（魔棒 / 同色全選預覽用）。
 - `js/render.js`：雙色格線、筆刷輪廓（反相填充 + 黑白雙線）、鏡射差異改洋紅斑馬 + 對稱軸虛線（並回報不對稱格數）、裁切八把手（含命中測試）、未標註格黃色斑馬反白、魔棒 / 同色全選的螞蟻線預覽、小圖縮放上限放寬。
 - `js/ui.js`：全量重寫。
 - `index.html` / `css/style.css`：全量重寫（Design Token 化）。
@@ -60,8 +60,13 @@
 - 畫布 `role="application"`；拖放 / 比對文案移出 CSS `content`；rail 與 dock 圖示改 `<symbol>` + `<use>`
 - 裁切列輸入不回寫正在打字的欄位；`stageBox()` 只量測，顯示狀態改 `syncBars()`；手機 HUD 顯示座標；橫向瀏海補左右 safe-area
 
+**P2（2026-08-18）**
+- 點陣圖改存 IndexedDB（`pixann` / `bitmaps`），`pixann.v2` 只留元資料與 RLE 標註；IDB 失敗或尚未寫入時仍夾 dataURL。離開頁面走同步 `save()`
+- 復原歷史改為可停留的面板（標題列 ▾；點一步跳過去但不關；Esc / 再點 / 點外面關閉）
+- 調色盤空文案移出 CSS；`#scrim` 改 `<button>`；繪圖 `getCoalescedEvents()`；PNG 倍率與 `codec.BITMAP_MAX_*` 對齊；魔棒改 scanline fill
+
 **未做**
-- 復原歷史面板目前是選單形式，非常駐面板
+- 沒有引入 fflate / UPNG.js / magic-wand-js（維持純靜態、零依賴；zip 檔名與 4GB 上限、scanline 泛洪已用既有程式處理）
 
 ## 行動版 / 平板（≤900px）
 

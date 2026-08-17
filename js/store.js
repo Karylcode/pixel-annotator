@@ -4,7 +4,7 @@
        新部件自動配色；切換圖片時記住各自的作用中部件與顯示集合。
    v2.1：復原改為位元組預算 + 筆畫稀疏 diff（不再空心化快照）；
          標註統計增量維護（coverage / partCounts 變 O(部件數)）；
-         存檔改 pixann.v2（版本、時間戳、RLE 網格、每張圖的 dataURL 快取、配額 / 跨分頁處理）。 */
+         存檔改 pixann.v2（版本、時間戳、RLE 網格、點陣圖進 IndexedDB、配額 / 跨分頁處理）。 */
 window.PA = window.PA || {};
 
 PA.store = (() => {
@@ -111,6 +111,11 @@ PA.store = (() => {
   function blankAnn(w, h) {
     return { parts: [], next: 1, grid: new Int16Array(w * h), counts: {}, annTotal: 0, annOpaque: 0 };
   }
+  function nextPartId(parts, min = 1) {
+    let n = min;
+    for (const p of parts) if (p.id + 1 > n) n = p.id + 1;
+    return n;
+  }
 
   const mkImage = (name, bmp) => ({ name, w: bmp.w, h: bmp.h, rgba: bmp.rgba, cvs: bmp.cvs, rev: 0 });
 
@@ -149,7 +154,7 @@ PA.store = (() => {
         a.parts = [...ids].sort((x, y) => x - y).map((id, i) => ({
           id, name: names[id] || '部件', color: colors[id] || PART_PALETTE[i % PART_PALETTE.length]
         }));
-        a.next = Math.max(0, ...a.parts.map(p => p.id)) + 1;
+        a.next = nextPartId(a.parts);
         a.grid = grid;
       } else {
         warning = `parts.grid 有 ${flatLen < 0 ? `${rows}×${cols}（列不是陣列）` : flatLen} 格，與 ${w}×${h} 不符，已略過標註`;
@@ -490,26 +495,38 @@ PA.store = (() => {
       for (let dx = -r; dx <= r; dx++) setPx(x + dx, y + dy, v);
   }
 
-  // 泛洪共用：從 (x,y) 出發找出相連同色的格，對每一格呼叫 visit(i)。
-  // 用平坦索引的 Int32Array 當堆疊、推入時就標 seen —— 不會像 [x,y] 陣列堆疊那樣
-  // 每格配置 4 個小陣列、堆疊長到造訪數的 4 倍。
+  // 泛洪共用：scanline fill。堆疊只存每條水平 span 的起點，比 4-鄰域逐格 push 少幾個數量級。
   function floodFrom(x, y, visit) {
-    const { w, h } = img();
+    const im = img(), w = im.w, h = im.h, d = im.rgba;
     if (!inBounds(x, y)) return;
-    const target = rgbaAt(x, y);
+    const pix = i => (d[i * 4] << 24 | d[i * 4 + 1] << 16 | d[i * 4 + 2] << 8 | d[i * 4 + 3]) >>> 0;
+    const target = pix(y * w + x);
     const seen = new Uint8Array(w * h);
-    let stack = new Int32Array(1024), sp = 0;
-    const push = i => { if (seen[i]) return; seen[i] = 1; if (sp === stack.length) stack = growI32(stack, sp + 1); stack[sp++] = i; };
+    let stack = new Int32Array(64), sp = 0;
+    const push = i => { if (sp === stack.length) stack = growI32(stack, sp + 1); stack[sp++] = i; };
     push(y * w + x);
     while (sp) {
-      const i = stack[--sp];
-      const cx = i % w, cy = (i / w) | 0;
-      if (rgbaAt(cx, cy) !== target) continue;
-      visit(i, cx, cy);
-      if (cx + 1 < w) push(i + 1);
-      if (cx > 0) push(i - 1);
-      if (cy + 1 < h) push(i + w);
-      if (cy > 0) push(i - w);
+      let i = stack[--sp];
+      if (seen[i] || pix(i) !== target) continue;
+      const cy = (i / w) | 0;
+      let cx = i % w;
+      while (cx > 0 && !seen[i - 1] && pix(i - 1) === target) { cx--; i--; }
+      let spanUp = false, spanDown = false;
+      while (cx < w && !seen[i] && pix(i) === target) {
+        seen[i] = 1;
+        visit(i, cx, cy);
+        if (cy > 0) {
+          const up = i - w;
+          if (!seen[up] && pix(up) === target) { if (!spanUp) { push(up); spanUp = true; } }
+          else spanUp = false;
+        }
+        if (cy + 1 < h) {
+          const dn = i + w;
+          if (!seen[dn] && pix(dn) === target) { if (!spanDown) { push(dn); spanDown = true; } }
+          else spanDown = false;
+        }
+        cx++; i++;
+      }
     }
   }
 
@@ -627,7 +644,7 @@ PA.store = (() => {
     for (const row of P.grid) for (const v of row) grid[k++] = v | 0;
     a.parts = Object.entries(P.names || {}).map(([key, v], i) =>
       ({ id: +key, name: v, color: (P.colors || {})[key] || PART_PALETTE[i % PART_PALETTE.length] }));
-    a.next = Math.max(0, ...a.parts.map(p => p.id)) + 1;
+    a.next = nextPartId(a.parts);
     a.grid = grid;
     recount(a, im);
     resetSel();
@@ -815,8 +832,9 @@ PA.store = (() => {
   const exportData = () => codec.encode(img(), annot());
 
   /* ---------- 存檔 ----------
-     payload = { v:2, savedAt, imgs:[{name,w,h,url}], ann:{name:{parts,next,grid(RLE)}}, sel, cur }
-     - 每張圖的 dataURL 依版本快取：沒改到的圖不必重新 PNG 編碼
+     payload = { v:2, savedAt, imgs:[{name,w,h,idb?,url?}], ann:{name:{parts,next,grid(RLE)}}, sel, cur }
+     - 點陣圖進 IndexedDB（鍵 = 檔名，值 = {w,h,rgba}）；localStorage 只留元資料 + 標註，避開 5–10MB 配額
+     - IDB 失敗或尚未寫入的圖仍附 dataURL（依 rev 快取），pagehide 同步路徑才能不丟資料
      - 回傳 {ok, reason?, bytes?}；reason = 'quota' | 'foreign' | 'error'
      - 配額失敗：保留舊快照（總比全丟好），另外寫一個 stale 時間戳，restore 時據實以告
      - 另一個分頁寫過較新的資料（storage 事件）：這個分頁停止自動保存，直到 takeOver() */
@@ -824,6 +842,73 @@ PA.store = (() => {
   let lastWrite = 0;          // 這個分頁最後一次成功寫入的 savedAt
   let foreignWrite = 0;       // 另一個分頁寫入的 savedAt（0 = 沒有）
   const foreignListeners = [];
+
+  const IDB_NAME = 'pixann', IDB_STORE = 'bitmaps';
+  let _idb = null;
+  const idbOpen = () => {
+    if (_idb) return _idb;
+    if (typeof indexedDB === 'undefined') return _idb = Promise.reject(new Error('no idb'));
+    _idb = new Promise((resolve, reject) => {
+      let req;
+      try { req = indexedDB.open(IDB_NAME, 1); }
+      catch (e) { reject(e); return; }
+      req.onupgradeneeded = () => {
+        if (!req.result.objectStoreNames.contains(IDB_STORE)) req.result.createObjectStore(IDB_STORE);
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    }).catch(e => { _idb = null; throw e; });
+    return _idb;
+  };
+  const idbTx = (db, mode) => {
+    const tx = db.transaction(IDB_STORE, mode);
+    return { tx, store: tx.objectStore(IDB_STORE), done: new Promise((res, rej) => {
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
+      tx.onabort = () => rej(tx.error || new Error('aborted'));
+    }) };
+  };
+  async function idbPutBitmap(im) {
+    const db = await idbOpen();
+    const copy = im.rgba.slice();
+    const { store, done } = idbTx(db, 'readwrite');
+    store.put({ w: im.w, h: im.h, rev: im.rev, rgba: copy.buffer }, im.name);
+    await done;
+    im._idbRev = im.rev;
+  }
+  async function idbGetBitmap(name) {
+    const db = await idbOpen();
+    const { store } = idbTx(db, 'readonly');
+    const rec = await new Promise((res, rej) => {
+      const r = store.get(name);
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+    if (!rec || rec.w < 1 || rec.h < 1 || !rec.rgba) return null;
+    return { bmp: codec.bitmapFromRgba(rec.w, rec.h, new Uint8ClampedArray(rec.rgba)), rev: rec.rev };
+  }
+  async function idbPrune(keep) {
+    const db = await idbOpen();
+    const keys = await new Promise((res, rej) => {
+      const { store } = idbTx(db, 'readonly');
+      const r = store.getAllKeys();
+      r.onsuccess = () => res(r.result || []);
+      r.onerror = () => rej(r.error);
+    });
+    const drop = keys.filter(k => !keep.has(k));
+    if (!drop.length) return;
+    const { store, done } = idbTx(db, 'readwrite');
+    for (const k of drop) store.delete(k);
+    await done;
+  }
+  async function idbClear() {
+    try {
+      const db = await idbOpen();
+      const { store, done } = idbTx(db, 'readwrite');
+      store.clear();
+      await done;
+    } catch (e) {}
+  }
 
   function dataUrlOf(im) {
     if (im._url && im._urlRev === im.rev) return im._url;
@@ -843,7 +928,12 @@ PA.store = (() => {
     try {
       payload = JSON.stringify({
         v: 2, savedAt,
-        imgs: state.imgs.map(im => ({ name: im.name, w: im.w, h: im.h, url: dataUrlOf(im) })),
+        imgs: state.imgs.map(im => {
+          const rec = { name: im.name, w: im.w, h: im.h };
+          if (im._idbRev === im.rev) { rec.idb = 1; rec.rev = im.rev; }
+          else rec.url = dataUrlOf(im);
+          return rec;
+        }),
         ann: Object.fromEntries(Object.entries(state.ann).map(([k, v]) =>
           [k, { parts: v.parts, next: v.next, grid: codec.packGrid(v.grid) }])),
         sel: state.selByImg,
@@ -859,6 +949,31 @@ PA.store = (() => {
       try { localStorage.setItem(LS_STALE, String(savedAt)); } catch (e2) {}
       return { ok: false, reason: isQuotaError(e) ? 'quota' : 'error' };
     }
+  }
+
+  // 先把髒的點陣圖寫進 IDB，再寫 localStorage（此時多數圖不必夾 dataURL）
+  async function persist() {
+    if (foreignWrite) return { ok: false, reason: 'foreign' };
+    try {
+      for (const im of state.imgs) {
+        if (im._idbRev === im.rev) continue;
+        await idbPutBitmap(im);
+      }
+      await idbPrune(new Set(state.imgs.map(im => im.name)));
+    } catch (e) { /* IDB 不可用：save() 會改夾 dataURL */ }
+    return save();
+  }
+
+  function loadFromUrl(url) {
+    return new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => {
+        try { resolve(codec.bitmapFromImage(el)); }
+        catch (e) { reject(e); }
+      };
+      el.onerror = () => reject(new Error('decode'));
+      el.src = url;
+    });
   }
 
   // 圖片要非同步解碼，所以用 callback 回報完成：done(ok, info)
@@ -897,7 +1012,7 @@ PA.store = (() => {
               a = { parts: Array.isArray(v.parts) ? v.parts.filter(q => q && typeof q === 'object' && +q.id)
                               .map(q => ({ id: +q.id, name: String(q.name ?? '部件'), color: String(q.color || PART_PALETTE[0]) })) : [],
                     next: Math.max(1, +v.next || 0), grid };
-              a.next = Math.max(a.next, ...a.parts.map(q => q.id + 1));
+              a.next = nextPartId(a.parts, a.next);
             } else info.failed.push(im.name + '（標註與圖片尺寸不符，已略過）');
           }
           state.ann[im.name] = a || blankAnn(im.w, im.h);
@@ -923,21 +1038,36 @@ PA.store = (() => {
     p.imgs.forEach((rec_, i) => {
       const name = String((rec_ && rec_.name) || `image${i}`);
       const url = rec_ && typeof rec_.url === 'string' ? rec_.url : '';
-      if (!url) { info.failed.push(name); settle(); return; }
-      const el = new Image();
-      el.onload = () => {
-        try { slots[i] = mkImage(name, codec.bitmapFromImage(el)); }
-        catch (e) { info.failed.push(name); }
+      const wantIdb = !!(rec_ && rec_.idb);
+      const ok = (bmp, fromIdb) => {
+        try {
+          const im = mkImage(name, bmp);
+          if (fromIdb) im._idbRev = im.rev;
+          slots[i] = im;
+        } catch (e) { info.failed.push(name); }
         settle();
       };
-      el.onerror = () => { info.failed.push(name); settle(); };
-      el.src = url;
+      const fail = () => { info.failed.push(name); settle(); };
+      (async () => {
+        if (wantIdb) {
+          try {
+            const got = await idbGetBitmap(name);
+            if (got && (rec_.rev == null || rec_.rev === got.rev)) return ok(got.bmp, true);
+          } catch (e) {}
+        }
+        if (url) {
+          try { return ok(await loadFromUrl(url), false); }
+          catch (e) { return fail(); }
+        }
+        fail();
+      })();
     });
   }
 
   function clearSaved() {
     try { localStorage.removeItem(LS_KEY); } catch (e) {}
     try { localStorage.removeItem(LS_STALE); } catch (e) {}
+    idbClear();
   }
 
   // 另一個分頁寫了較新的資料 → 記下來並通知 ui；save() 之後會拒絕寫入，避免互相覆蓋
@@ -967,6 +1097,6 @@ PA.store = (() => {
     setPx, brushAt, floodSameColour, allSameColour, selectionMask, strokeTo, clearGrid,
     addPart, deletePart, renamePart, setPartColor, movePart, applyAnnotation,
     setActive, toggleShown, soloShown, setHover, resetSel,
-    exportData, save, restore, clearSaved, onForeignSave, takeOver, hasForeignWrite,
+    exportData, save, persist, restore, clearSaved, onForeignSave, takeOver, hasForeignWrite,
   };
 })();

@@ -184,7 +184,7 @@ PA.codec = (() => {
      顯示用的 canvas 不能帶 willReadFrequently —— 那個旗標會把 canvas 釘在軟體渲染路徑，
      只有真的要 getImageData 的「解碼容器」才需要。 */
 
-  // 圖片邊長 / 面積上限：超過的 PNG 解碼出來一張就要吃掉上 GB 的記憶體
+  // 圖片邊長 / 面積上限：超過的 PNG 解碼或整數倍放大會一次吃掉上 GB
   const BITMAP_MAX_SIDE = 16384, BITMAP_MAX_AREA = 4e7;
 
   function bitmapFromImage(el) {
@@ -206,6 +206,8 @@ PA.codec = (() => {
   // rgba 直接成為點陣圖的資料（不複製、不往返讀回），canvas 只是它的顯示鏡像
   function bitmapFromRgba(w, h, rgba) {
     if (!(rgba instanceof Uint8ClampedArray)) rgba = Uint8ClampedArray.from(rgba);
+    if (w > BITMAP_MAX_SIDE || h > BITMAP_MAX_SIDE || w * h > BITMAP_MAX_AREA)
+      throw new Error(`圖片太大（${w}×${h}），上限為 ${BITMAP_MAX_SIDE} 邊長、${BITMAP_MAX_AREA / 1e6} 百萬像素`);
     if (rgba.length !== w * h * 4) throw new Error(`rgba 長度 ${rgba.length} 與 ${w}×${h} 不符`);
     return { w, h, rgba, cvs: canvasFromRgba(w, h, rgba) };
   }
@@ -225,6 +227,8 @@ PA.codec = (() => {
     if (s === 1) return img.cvs;
     const { w, h, rgba } = img;
     const W = w * s, H = h * s;
+    if (W > BITMAP_MAX_SIDE || H > BITMAP_MAX_SIDE || W * H > BITMAP_MAX_AREA)
+      throw new Error(`放大後 ${W}×${H} 超過上限（${BITMAP_MAX_SIDE} 邊長、${BITMAP_MAX_AREA / 1e6} 百萬像素）`);
     const out = new Uint8ClampedArray(W * H * 4);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
@@ -463,5 +467,6 @@ PA.codec = (() => {
 
   return { parseLoose, extractName, hex2rgba, rgba2hex, decodePixels,
            bitmapFromImage, bitmapFromRgba, canvasFromRgba, scaleBitmap,
-           encode, toJson, toJs, toSvg, zip, packGrid, unpackGrid, jsIdent };
+           encode, toJson, toJs, toSvg, zip, packGrid, unpackGrid, jsIdent,
+           BITMAP_MAX_SIDE, BITMAP_MAX_AREA };
 })();

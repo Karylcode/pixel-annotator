@@ -269,6 +269,9 @@ PA.ui = (() => {
 
   document.addEventListener('pointerdown', e => {
     if (menuEl && !menuEl.contains(e.target)) closeMenu();
+    if (typeof histOpen === 'function' && histOpen() && !histPanel().contains(e.target) &&
+        !e.target.closest('#b-hist, #b-undo, #b-redo, #hist-close'))
+      closeHistPanel();
   });
 
   /* ═══════════ 對話框共用：焦點陷阱 + 焦點回歸 ═══════════ */
@@ -350,9 +353,17 @@ PA.ui = (() => {
     renderRecent();
   }
 
+  function palEmpty(box, text) {
+    const s = document.createElement('span');
+    s.className = 'pal-empty';
+    s.textContent = text;
+    box.appendChild(s);
+  }
+
   function renderRecent() {
     const box = $('recentpal');
     box.innerHTML = '';
+    if (!recent.length) { palEmpty(box, '（用過的顏色會出現在這裡）'); return; }
     for (const hex of recent) {
       const b = document.createElement('button');
       b.style.background = hex;
@@ -384,7 +395,7 @@ PA.ui = (() => {
   function renderPalette() {
     const box = $('imgpal');
     box.innerHTML = '';
-    if (!store.has()) return;
+    if (!store.has()) { palEmpty(box, '（開啟圖片後顯示）'); return; }
     for (const c of sortByHue(store.imagePalette())) {
       const hex = rgb2hex(c);
       const b = document.createElement('button');
@@ -404,9 +415,8 @@ PA.ui = (() => {
     (store.img().w <= TEXT_FMT_MAX && store.img().h <= TEXT_FMT_MAX);
   const TEXT_FMT_REASON = `圖片大於 ${TEXT_FMT_MAX}×${TEXT_FMT_MAX}，資料量太大 — 先裁切或像素化`;
 
-  // 瀏覽器對單張 canvas 有邊長與面積上限，超過的話 toBlob 會靜默失敗，
-  // 所以把辦不到的倍率直接停用，而不是讓使用者按了沒反應。
-  const PNG_MAX_SIDE = 16384, PNG_MAX_AREA = 2.5e8;
+  // 與 codec.scaleBitmap 同一組上限：超過會一次吃掉上百 MB，按鈕先停用而不是按了才丟錯。
+  const PNG_MAX_SIDE = codec.BITMAP_MAX_SIDE, PNG_MAX_AREA = codec.BITMAP_MAX_AREA;
   const scaleFits = (im, s) => {
     const W = im.w * s, H = im.h * s;
     return W <= PNG_MAX_SIDE && H <= PNG_MAX_SIDE && W * H <= PNG_MAX_AREA;
@@ -481,7 +491,7 @@ PA.ui = (() => {
     btns.forEach(b => {
       const s = +b.dataset.s, fits = scaleFits(im, s);
       b.disabled = !fits;
-      b.title = fits ? `${im.w * s}×${im.h * s}` : '超過瀏覽器單張圖片的上限';
+      b.title = fits ? `${im.w * s}×${im.h * s}` : '放大後超過記憶體上限';
     });
     if (!scaleFits(im, pngScale)) {
       const usable = btns.map(b => +b.dataset.s).filter(s => scaleFits(im, s));
@@ -1055,25 +1065,17 @@ PA.ui = (() => {
     syncExport();
     updateHud();
     updateStatus();
+    fillHistPanel();
     if (has) settleZoom();
   }
 
   /* ---------- 存檔：trailing debounce，離開頁面前 flush ----------
-     store.save() 會把所有圖片打包（每張圖的 PNG dataURL 有依版本快取，沒改的不重編），
-     但仍不該在每一筆筆畫 / 每一次眼睛開關就同步跑一遍 —— 800ms 內的變更合併成一次。 */
+     persist() 先把點陣圖寫進 IndexedDB，localStorage 只留元資料；
+     pagehide / beforeunload 走同步 save()（已進 IDB 的圖不再夾 dataURL）。 */
   const SAVE_DELAY = 800;
-  let saveTimer = 0, quotaWarned = false;
+  let saveTimer = 0, quotaWarned = false, saveFlushing = null;
 
-  function save_() {
-    savePending = true;
-    if (!saveTimer) saveTimer = setTimeout(flushSave, SAVE_DELAY);
-  }
-
-  function flushSave() {
-    if (saveTimer) { clearTimeout(saveTimer); saveTimer = 0; }
-    if (!savePending) return;
-    savePending = false;
-    const r = store.save();
+  function applySaveResult(r) {
     if (r.ok) {
       saveState = 'ok'; quotaWarned = false;
     } else if (r.reason === 'foreign') {
@@ -1091,6 +1093,25 @@ PA.ui = (() => {
     updateStatus();
   }
 
+  function save_() {
+    savePending = true;
+    if (!saveTimer) saveTimer = setTimeout(flushSave, SAVE_DELAY);
+  }
+
+  function flushSave() {
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = 0; }
+    if (!savePending && !saveFlushing) return;
+    savePending = false;
+    const run = () => store.persist().then(applySaveResult, () => applySaveResult(store.save()));
+    saveFlushing = (saveFlushing || Promise.resolve()).then(run, run).finally(() => { saveFlushing = null; });
+  }
+
+  function flushSaveSync() {
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = 0; }
+    savePending = false;
+    applySaveResult(store.save());
+  }
+
   // 另一個分頁保存了較新的資料：這個分頁停止自動保存（避免互相覆蓋），讓使用者選
   store.onForeignSave(() => {
     saveState = 'foreign';
@@ -1102,10 +1123,10 @@ PA.ui = (() => {
   });
 
   // 離開 / 切到背景前把還沒寫的變更 flush 掉；真的存不進去就攔一下
-  window.addEventListener('pagehide', flushSave);
+  window.addEventListener('pagehide', flushSaveSync);
   document.addEventListener('visibilitychange', () => { if (document.hidden) flushSave(); });
   window.addEventListener('beforeunload', e => {
-    flushSave();
+    flushSaveSync();
     if (saveState !== 'ok' && store.has() && (store.hasAnnotation() || S.imgs.length)) {
       e.preventDefault();
       e.returnValue = '';
@@ -1746,22 +1767,31 @@ PA.ui = (() => {
       }
 
       // 裁切 / 對稱軸拖曳有自己的 move 監聽器；筆畫以外的手勢絕對不能走到下面塗色
-      if (!drawing || gesture || !inside) return;
+      if (!drawing || gesture) return;
 
-      if (PIXEL_TOOLS.has(S.tool)) {
-        // 沿路徑補點，快速拖曳才不會留下斷點
-        paintLine(lastPx, [x, y]);
-        lastPx = [x, y];
-        lastStrokeEnd = [x, y];
-        scheduleDraw();
-        return;
+      // 高回報率指標會把中間點合併進這一個 pointermove；逐點補上才不會留下斷線
+      const raw = typeof e.getCoalescedEvents === 'function' ? e.getCoalescedEvents() : null;
+      const events = raw && raw.length ? raw : [e];
+      let painted = false, annot = false;
+      for (const ce of events) {
+        const [px, py] = render.pxAt(ce);
+        if (!store.inBounds(px, py)) continue;
+        if (PIXEL_TOOLS.has(S.tool)) {
+          paintLine(lastPx, [px, py]);
+          lastPx = [px, py];
+          lastStrokeEnd = [px, py];
+          painted = true;
+        } else if (S.tool === 'brush' || S.tool === 'erase') {
+          store.strokeTo(lastPx[0], lastPx[1], px, py, S.tool === 'erase' ? 0 : S.activePart);
+          lastPx = [px, py];
+          lastStrokeEnd = [px, py];
+          painted = true;
+          annot = true;
+        }
       }
-
-      if (S.tool === 'brush' || S.tool === 'erase') {
-        store.strokeTo(lastPx[0], lastPx[1], x, y, S.tool === 'erase' ? 0 : S.activePart);
-        lastPx = [x, y];
-        lastStrokeEnd = [x, y];
-        scheduleDraw(); schedulePanelCounts();
+      if (painted) {
+        scheduleDraw();
+        if (annot) schedulePanelCounts();
       }
     });
 
@@ -2215,6 +2245,7 @@ PA.ui = (() => {
     $('d-more').setAttribute('aria-expanded', String(m && railOpen()));
     $('d-panel').classList.toggle('on', m && asideOpen());
     $('d-panel').setAttribute('aria-expanded', String(m && asideOpen()));
+    $('scrim').setAttribute('aria-hidden', String(!(m && (railOpen() || asideOpen()))));
   }
 
   function closeSheets() {
@@ -2245,6 +2276,7 @@ PA.ui = (() => {
     if (r.resized) { S.zoomTouched = false; fit(); }
     renderAll(); save_();
     toast(`${verb}：${r.label}`);
+    fillHistPanel();
   }
 
   function doUndo() {
@@ -2272,18 +2304,67 @@ PA.ui = (() => {
   const undoSteps = n => historySteps(n, store.undoOnce, '已復原');
   const redoSteps = n => historySteps(n, store.redoOnce, '已重做');
 
-  // 復原歷史面板：列出每筆快照的標籤，點一下就跳到那個時間點
-  function openHistoryMenu(x, y, invoker) {
-    const { past, future } = store.historyLabels();
-    const items = [];
-    if (future.length) {
-      items.push({ head: '可重做' });
-      future.forEach((label, i) => items.push({ label: `↷ ${label}`, action: () => redoSteps(i + 1) }));
-      items.push({ sep: true });
+  // 復原歷史面板：開著就留著，點一步跳過去但不關；Esc / 再點 ▾ / 點外面關閉
+  const histPanel = () => $('histpanel');
+  const histOpen = () => !histPanel().classList.contains('hide');
+
+  function closeHistPanel() {
+    if (!histOpen()) return;
+    histPanel().classList.add('hide');
+    $('b-hist').setAttribute('aria-expanded', 'false');
+  }
+
+  function fillHistPanel() {
+    if (!histOpen()) return;
+    const box = $('histlist');
+    box.innerHTML = '';
+    if (!store.has()) {
+      const h = document.createElement('div');
+      h.className = 'mhead';
+      h.textContent = '沒有開啟的圖片';
+      box.appendChild(h);
+      return;
     }
-    items.push({ head: past.length ? `可復原（最新在上）· 共 ${past.length} 步` : '沒有可復原的動作' });
-    [...past].reverse().forEach((label, i) => items.push({ label: `↶ ${label}`, kbd: i === 0 ? 'Ctrl+Z' : '', action: () => undoSteps(i + 1) }));
-    showMenu(x, y, items, invoker);
+    const { past, future } = store.historyLabels();
+    const addHead = t => {
+      const h = document.createElement('div');
+      h.className = 'mhead';
+      h.textContent = t;
+      box.appendChild(h);
+    };
+    const addBtn = (label, kbd, action, on) => {
+      const b = document.createElement('button');
+      b.className = 'mi' + (on ? ' on' : '');
+      b.setAttribute('role', 'option');
+      const lb = document.createElement('span');
+      lb.className = 'mlabel';
+      lb.textContent = label;
+      b.appendChild(lb);
+      if (kbd) { const k = document.createElement('kbd'); k.textContent = kbd; b.appendChild(k); }
+      b.onclick = () => { action(); fillHistPanel(); };
+      box.appendChild(b);
+    };
+    if (future.length) {
+      addHead('可重做');
+      future.forEach((label, i) => addBtn(`↷ ${label}`, '', () => redoSteps(i + 1)));
+    }
+    addHead(past.length ? `可復原（最新在上）· 共 ${past.length} 步` : '沒有可復原的動作');
+    [...past].reverse().forEach((label, i) => addBtn(`↶ ${label}`, i === 0 ? 'Ctrl+Z' : '', () => undoSteps(i + 1), i === 0));
+  }
+
+  function openHistPanel() {
+    if (histOpen()) { closeHistPanel(); return; }
+    closeMenu();
+    const panel = histPanel();
+    panel.classList.remove('hide');
+    $('b-hist').setAttribute('aria-expanded', 'true');
+    fillHistPanel();
+    const r = $('b-hist').getBoundingClientRect();
+    const w = panel.getBoundingClientRect().width;
+    panel.style.left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)) + 'px';
+    panel.style.top = Math.min(r.bottom + 6, window.innerHeight - 80) + 'px';
+    const first = panel.querySelector('.mi:not(:disabled)');
+    if (first) first.focus({ preventScroll: true });
   }
 
   /* ═══════════ 破壞性操作 ═══════════ */
@@ -2448,15 +2529,16 @@ PA.ui = (() => {
     $('b-redo').onclick = doRedo;
     $('b-hist').onclick = e => {
       e.stopPropagation();
-      const r = $('b-hist').getBoundingClientRect();
-      openHistoryMenu(r.right - 240, r.bottom + 6, $('b-hist'));
+      openHistPanel();
     };
+    $('hist-close').onclick = closeHistPanel;
     // ↶ ↷ 上按右鍵也開歷史（Photoshop 慣例）
     for (const id of ['b-undo', 'b-redo']) {
       $(id).addEventListener('contextmenu', e => {
         e.preventDefault();
         if (!store.has()) return;
-        openHistoryMenu(e.clientX, e.clientY, $('b-hist'));
+        if (!histOpen()) openHistPanel();
+        else fillHistPanel();
       });
     }
     $('b-zin').onclick = () => zoomStep(1);
@@ -2533,10 +2615,10 @@ PA.ui = (() => {
     $('px-redetect').onclick = pxDetect;
     ['px-w', 'px-h'].forEach(id => { $(id).oninput = () => pxOnEdit('count'); });
     ['px-sx', 'px-sy', 'px-phx', 'px-phy'].forEach(id => { $(id).oninput = () => pxOnEdit('size'); });
-    $('px-k').oninput = () => { $('px-k-range').value = Math.min(+$('px-k-range').max, Math.max(0, +$('px-k').value || 0)); pxRecompute(); };
-    $('px-k-range').oninput = () => { $('px-k').value = $('px-k-range').value; pxRecompute(); };
-    $('px-bg').oninput = pxRecompute;
-    $('px-snap').oninput = () => { pxNeedError = true; pxRecompute(); };
+    $('px-k').oninput = () => { $('px-k-range').value = Math.min(+$('px-k-range').max, Math.max(0, +$('px-k').value || 0)); pxRecomputeSoon(); };
+    $('px-k-range').oninput = () => { $('px-k').value = $('px-k-range').value; pxRecomputeSoon(); };
+    $('px-bg').oninput = pxRecomputeSoon;
+    $('px-snap').oninput = () => { pxNeedError = true; pxRecomputeSoon(); };
     $('px-gridview').oninput = pxDrawSource;
     $('px-compare').oninput = () => pxSetCompare($('px-compare').checked);
     $('px-split').oninput = () => { $('px-cmp').style.setProperty('--split', $('px-split').value + '%'); };
@@ -2718,6 +2800,7 @@ PA.ui = (() => {
         // 焦點在選單項目上時，Enter / Space 是「選這一項」，不能落到下面的快捷鍵（例如裁切的 Enter）
         else if (menuEl && menuEl.contains(e.target)) return;
       }
+      if (histOpen() && e.key === 'Escape') { closeHistPanel(); return; }
       // 行動版（外接鍵盤）：Esc 先關抽屜
       if (e.key === 'Escape' && isMobile() && (railOpen() || asideOpen()) &&
           !(e.target instanceof Element && e.target.matches('input, textarea'))) {

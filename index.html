@@ -221,9 +221,9 @@
           <button id="b-swapcolor" class="btn icon" title="交換目前 / 上一色" aria-label="交換顏色">⇄</button>
         </div>
         <div class="grouplabel">圖片調色盤</div>
-        <div class="pal" id="imgpal"></div>
+        <div class="pal" id="imgpal"><span class="pal-empty">（開啟圖片後顯示）</span></div>
         <div class="grouplabel">最近用色</div>
-        <div class="pal" id="recentpal"></div>
+        <div class="pal" id="recentpal"><span class="pal-empty">（用過的顏色會出現在這裡）</span></div>
         <div class="tabfoot"></div>
       </div>
 
@@ -295,7 +295,7 @@
     </aside>
 
     <!-- 行動版：抽屜打開時蓋在畫布上的遮罩（點一下關抽屜；桌面隱藏） -->
-    <div id="scrim"></div>
+    <button type="button" id="scrim" aria-label="關閉面板" aria-hidden="true" tabindex="-1"></button>
     <div id="drop-hint" aria-hidden="true">放開以開啟</div>
   </div>
 
@@ -537,6 +537,13 @@
 <!-- Toast 堆疊（右下）與動態選單層 -->
 <div id="toasts" role="status" aria-live="polite"></div>
 <div id="menulayer"></div>
+<div id="histpanel" class="hide" role="dialog" aria-label="復原歷史">
+  <div class="histhead">
+    <span>復原歷史</span>
+    <button type="button" id="hist-close" class="btn icon" aria-label="關閉歷史">×</button>
+  </div>
+  <div id="histlist" role="listbox"></div>
+</div>
 
 <script src="js/codec.js"></script>
 <script src="js/pixelate.js"></script>

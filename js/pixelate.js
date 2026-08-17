@@ -77,51 +77,21 @@ PA.pixelate = (() => {
     return { score: bv, phase: bp };
   }
 
-  // 單軸粗掃,回傳最佳格寬。圖太小或完全沒有週期性時回傳 null,
-  // 不要回傳格寬 0 —— 呼叫端會算出 Infinity 格。
-  function coarseAxis(E, total, n) {
-    // 範圍要隨圖片大小調整:原本固定 4~n/8,對 32px 以下的圖上限會小於起點,
-    // 迴圈一次都不跑,偵測必然失敗。大圖的範圍維持原樣不受影響。
-    const lo = Math.min(4, Math.max(2, n / 12));
-    const hi = Math.max(4.5, n / 8);
-    let bv = -1, bs = 0;
-    for (let s = lo; s <= hi; s += 0.25) {
-      const r = bestPhase(E, total, s, 16);
-      if (r.score > bv) { bv = r.score; bs = s; }
-    }
-    return bs >= 2 ? { score: bv, size: bs } : null;
-  }
-
   const sum = a => { let t = 0; for (let i = 0; i < a.length; i++) t += a[i]; return t; };
-
-  function detectGrid(rgba, w, h) {
-    const ex = edgeEnergy(rgba, w, h, 0), ey = edgeEnergy(rgba, w, h, 1);
-    const tx = sum(ex), ty = sum(ey);
-    const cx = coarseAxis(ex, tx, w), cy = coarseAxis(ey, ty, h);
-    if (!cx || !cy) return null;
-
-    // 像素圖的像素幾乎一定是正方形,所以鎖同一個格寬 —— 兩軸各自的最佳值常差 1~2px,
-    // 不鎖的話結果會歪斜。兩軸的候選都試一遍,取「兩軸分數總和」較高的那個,
-    // 只挑單軸分數較高者不夠可靠(實測有圖的 Y 軸會選到完全錯的尺度)。
-    const refine = s0 => {
-      let out = { score: -1, s: s0, phx: 0, phy: 0 };
-      for (let s = Math.max(2, s0 - 0.4); s <= s0 + 0.4; s += 0.02) {
-        const a = bestPhase(ex, tx, s, 64), b = bestPhase(ey, ty, s, 64);
-        const v = a.score + b.score;
-        if (v > out.score) out = { score: v, s, phx: a.phase, phy: b.phase };
-      }
-      return out;
-    };
-    const ra = refine(cx.size), rb = refine(cy.size);
-    const best = ra.score >= rb.score ? ra : rb;
+  const axisLo = n => Math.min(4, Math.max(2, n / 12));
+  const axisHi = n => Math.max(4.5, n / 8);
+  function packDetected(best, cx, cy, w, h) {
     const { s, phx, phy } = best;
-
     return {
       sx: s, sy: s, phx, phy,
       nx: Math.max(1, Math.min(512, Math.round((w - phx) / s))),
       ny: Math.max(1, Math.min(512, Math.round((h - phy) / s))),
       scoreX: cx.score, scoreY: cy.score,
     };
+  }
+  function scorePair(ex, ey, tx, ty, s) {
+    const a = bestPhase(ex, tx, s, 64), b = bestPhase(ey, ty, s, 64);
+    return { score: a.score + b.score, s, phx: a.phase, phy: b.phase };
   }
 
   /* ---------- 格線位置:等距只是起點,實際要逐條吸附 ---------- */
@@ -550,7 +520,7 @@ PA.pixelate = (() => {
   }
 
   /* ---------- 非同步偵測（進度 + 取消） ----------
-     邏輯與 detectGrid 相同，但分段讓出主執行緒，UI 才能畫進度條、回應取消。
+     分段讓出主執行緒，UI 才能畫進度條、回應取消。
      hooks: { onProgress(0..1), cancelled() -> bool }。取消時回傳 null。 */
   async function detectGridAsync(rgba, w, h, hooks = {}) {
     const onProgress = hooks.onProgress || (() => {});
@@ -572,8 +542,7 @@ PA.pixelate = (() => {
     const tx = sum(ex), ty = sum(ey);
 
     async function coarseAxisAsync(E, total, n, base, span) {
-      const lo = Math.min(4, Math.max(2, n / 12));
-      const hi = Math.max(4.5, n / 8);
+      const lo = axisLo(n), hi = axisHi(n);
       const steps = Math.max(1, Math.round((hi - lo) / 0.25));
       let bv = -1, bs = 0, k = 0, last = performance.now();
       for (let s = lo; s <= hi; s += 0.25, k++) {
@@ -595,9 +564,8 @@ PA.pixelate = (() => {
       let k = 0;
       for (let s = Math.max(2, s0 - 0.4); s <= s0 + 0.4; s += 0.02, k++) {
         if (cancelled()) return null;
-        const a = bestPhase(ex, tx, s, 64), b = bestPhase(ey, ty, s, 64);
-        const v = a.score + b.score;
-        if (v > out.score) out = { score: v, s, phx: a.phase, phy: b.phase };
+        const r = scorePair(ex, ey, tx, ty, s);
+        if (r.score > out.score) out = r;
         if ((k & 3) === 0) { onProgress(base + span * Math.min(1, k / steps)); await tick(); }
       }
       return out;
@@ -614,19 +582,11 @@ PA.pixelate = (() => {
     if (!ra) return null;
     const rb = await refineAsync(cy.size, 0.9, 0.1);
     if (!rb) return null;
-    const best = ra.score >= rb.score ? ra : rb;
-    const { s, phx, phy } = best;
     onProgress(1);
-
-    return {
-      sx: s, sy: s, phx, phy,
-      nx: Math.max(1, Math.min(512, Math.round((w - phx) / s))),
-      ny: Math.max(1, Math.min(512, Math.round((h - phy) / s))),
-      scoreX: cx.score, scoreY: cy.score,
-    };
+    return packDetected(ra.score >= rb.score ? ra : rb, cx, cy, w, h);
   }
 
-  return { detectGrid, detectGridAsync, resample, reconstructError, removeBackground, backgroundColours,
+  return { detectGridAsync, resample, reconstructError, removeBackground, backgroundColours,
            quantize, countColours, toOklab, run,
            edgeProfiles, buildBounds, uniformBounds, snapBounds, meshBounds };
 })();

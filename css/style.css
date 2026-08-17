@@ -423,8 +423,7 @@ body.aside-closed .railmini {
 }
 .pal button:hover { outline: 2px solid var(--focus); outline-offset: 1px; }
 .pal button.on { outline: 2px solid var(--accent); outline-offset: 1px; }
-.pal:empty::after { content: "（開啟圖片後顯示）"; color: var(--fg-3); font-size: var(--fs-data); grid-column: 1/-1; }
-#recentpal:empty::after { content: "（用過的顏色會出現在這裡）"; }
+.pal-empty { color: var(--fg-3); font-size: var(--fs-data); grid-column: 1 / -1; }
 
 /* 圖片分頁 */
 #imglist { display: flex; flex-direction: column; gap: var(--sp-1); }
@@ -663,6 +662,34 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
 .menu .msep { height: 1px; background: var(--line-2); margin: var(--sp-1) var(--sp-2); }
 .menu .mhead { padding: var(--sp-1) var(--sp-2); font-size: var(--fs-data); color: var(--fg-3); }
 
+/* 復原歷史面板：浮層，不佔桌面版面（指紋量測的 chrome 不含這塊） */
+#histpanel {
+  position: fixed; z-index: 50; width: 280px; max-height: min(60vh, 480px);
+  display: flex; flex-direction: column;
+  background: var(--surface-2); border: 1px solid var(--line-1); border-radius: var(--r-md);
+  box-shadow: var(--shadow-2);
+}
+#histpanel.hide { display: none; }
+.histhead {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-2) var(--sp-1) var(--sp-3);
+  font-size: var(--fs-md); color: var(--fg-1); flex: none;
+}
+.histhead .btn.icon { width: 28px; height: 28px; }
+#histlist { overflow-y: auto; padding: var(--sp-1); display: flex; flex-direction: column; gap: 1px; }
+#histlist .mi {
+  display: flex; align-items: center; gap: var(--sp-2); padding: 7px var(--sp-2);
+  background: none; border: none; color: var(--fg-2); font-size: var(--fs-md); cursor: pointer;
+  border-radius: var(--r-sm); text-align: left; white-space: nowrap;
+}
+#histlist .mi:hover, #histlist .mi:focus { background: var(--surface-3); color: var(--fg-1); }
+#histlist .mi:focus { outline: none; }
+#histlist .mi:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+#histlist .mi.on { background: var(--accent-soft); color: var(--fg-1); }
+#histlist .mi .mlabel { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+#histlist .mi kbd { border: none; padding: 0; }
+#histlist .mhead { padding: var(--sp-1) var(--sp-2); font-size: var(--fs-data); color: var(--fg-3); }
+
 /* 行動版才會出現的元素（底部工具列、遮罩、抽屜把手）：桌面永遠隱藏 */
 #dock, #scrim, .sheethandle { display: none; }
 
@@ -720,7 +747,7 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
     padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
   }
   #dock .modesw { width: auto; flex: none; padding: 2px; }
-  #dock .modesw button { flex: none; height: 36px; padding: 0 10px; font: 500 var(--fs-md)/1 var(--font); }
+  #dock .modesw button { flex: none; height: 44px; padding: 0 10px; font: 500 var(--fs-md)/1 var(--font); }
   #dock .dtools {
     flex: 1 1 auto; min-width: 0; display: flex; gap: var(--sp-1);
     overflow-x: auto; scrollbar-width: none;
@@ -742,6 +769,8 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
   #scrim {
     display: block; position: absolute; inset: 0; z-index: 5; background: #00000073;
     opacity: 0; pointer-events: none; transition: opacity var(--dur) var(--ease);
+    border: 0; padding: 0; margin: 0; appearance: none; -webkit-appearance: none;
+    font: inherit; color: inherit; cursor: pointer;
   }
   body.rail-open #scrim, body:not(.aside-closed) #scrim { opacity: 1; pointer-events: auto; }
 
@@ -759,7 +788,7 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
     transform: none; visibility: visible; transition-delay: 0s;
   }
   .sheethandle {
-    display: flex; flex: none; justify-content: center; align-items: center; height: 28px; cursor: pointer;
+    display: flex; flex: none; justify-content: center; align-items: center; height: 44px; cursor: pointer;
     width: 100%; background: none; border: 0; padding: 0; border-radius: var(--r-lg) var(--r-lg) 0 0;   /* 是 <button>：清掉 UA 樣式 */
   }
   .sheethandle::before { content: ""; width: 40px; height: 4px; border-radius: 2px; background: var(--fg-3); opacity: .6; }
@@ -792,6 +821,9 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
   label.chk input { width: 18px; height: 18px; }
   .menu .mi { min-height: 44px; padding: 10px var(--sp-3); }
   .menu { max-width: calc(100vw - 16px); }
+  #histpanel { width: min(280px, calc(100vw - 16px)); max-height: 50vh; }
+  #histlist .mi { min-height: 44px; padding: 10px var(--sp-3); }
+  .histhead .btn.icon { width: 44px; height: 44px; }
   input[type=text], input[type=number], textarea, .hexinput, #m-text, .part .nmedit { font-size: 16px; }   /* iOS 對焦不自動放大 */
 
   /* Toast：改放標題列下方 —— 底部有 dock / 縮圖列 / 抽屜，放上面才不會蓋到任何一個 */
