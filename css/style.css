@@ -61,7 +61,8 @@ button, input, select, textarea { font: inherit; }
 .grow { flex: 1; }
 .hide { display: none !important; }
 #icons { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
-svg.ico { display: block; flex: none; }
+/* <use> 圖示沿用原本 inline <svg> 的排版：工具鈕的 svg 已由 .toolbtn svg 設 display:block；
+   .card .cicon 裡的必須維持 inline（改 block 會少掉基線間距，卡片矮 5px，桌面版面就變了） */
 
 /* ═══ 捲軸：細、圓角、透明軌道，跟主題走 ═══
    Chromium / Safari 走 ::-webkit-scrollbar（滑塊用透明邊框內縮成 6px 藥丸）；
