@@ -1256,6 +1256,9 @@ PA.ui = (() => {
     if (!pxGrid || !pxGrid.xs || !$('px-gridview').checked) return;
     // 線寬換算成「約 1 個顯示像素」，否則縮小顯示時會糊成一片粗線
     const disp = cv2.clientWidth || im.w;
+    const nx = pxGrid.nx || Math.max(1, pxGrid.xs.length - 1);
+    // 手機上大圖縮成一小塊時，86 條格線會疊成整片洋紅，看起來像預覽壞掉
+    if (disp / nx < 4) return;
     cx.strokeStyle = 'rgba(255,60,255,.9)';
     cx.lineWidth = Math.max(1, im.w / disp);
     cx.beginPath();

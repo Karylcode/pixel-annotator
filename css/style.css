@@ -836,15 +836,29 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
   .pxside { width: auto; }
   .dfoot { flex-wrap: wrap; }
 
-  /* 像素化：中間自己捲，取消 / 套用釘在底部，不被兩張預覽推出螢幕 */
-  #pxmodal.dialog { align-items: stretch; }
-  #pxmodal .box.wide {
-    height: 100%; max-height: none; overflow: hidden; padding-bottom: 0;
+  /* 像素化：iOS Safari 對 flex:1 + overflow 會算不出高度，整塊被工具列吃掉。
+     改用 100svh（不含位址列）+ flex-basis:0，中間自己捲、底部按鈕釘住。 */
+  #pxmodal.dialog {
+    inset: auto; top: 0; left: 0; right: 0;
+    height: 100svh; max-height: 100svh;
+    display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start;
+    padding: 0;
   }
-  #pxmodal .pxmid { overflow-y: auto; overscroll-behavior: contain; }
+  #pxmodal .box.wide {
+    flex: 1 1 0px; min-height: 0; width: 100%; max-width: none;
+    height: auto; max-height: none; overflow: hidden;
+    display: flex; flex-direction: column;
+    border-radius: 0; padding: var(--sp-3); padding-bottom: 0;
+  }
+  #pxmodal .pxmid {
+    flex: 1 1 0px; min-height: 0;
+    overflow-y: auto; overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
   #pxmodal .dfoot {
-    flex: none; justify-content: stretch;
-    padding: var(--sp-3); padding-bottom: calc(var(--sp-3) + env(safe-area-inset-bottom, 0px));
+    flex: 0 0 auto; justify-content: stretch; z-index: 2;
+    padding: var(--sp-3);
+    padding-bottom: max(var(--sp-3), env(safe-area-inset-bottom, 0px));
     border-top: 1px solid var(--line-1); background: var(--surface-1);
   }
   #pxmodal .dfoot .grow { display: none; }
@@ -879,7 +893,7 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
   .cards { flex-direction: column; width: 100%; }
   .card { width: 100%; flex-direction: row; text-align: left; align-items: center; padding: var(--sp-3); gap: var(--sp-3); }
   .card .sub br { display: none; }
-  .pxpane canvas { max-height: 26vh; }
+  .pxpane canvas { max-height: 22vh; }
   #m-text { min-height: 200px; }
   .keygrid { grid-template-columns: 1fr; }
   #cropbar .sub { display: none; }
