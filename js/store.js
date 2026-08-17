@@ -1039,10 +1039,13 @@ PA.store = (() => {
       const name = String((rec_ && rec_.name) || `image${i}`);
       const url = rec_ && typeof rec_.url === 'string' ? rec_.url : '';
       const wantIdb = !!(rec_ && rec_.idb);
-      const ok = (bmp, fromIdb) => {
+      // fromIdb 時把 IDB 記錄裡的 rev 接著用：rev 每個工作階段都從 0 起算，
+      // 若這裡歸零，下一次 save() 會把 rev:0 寫進 localStorage、IDB 卻還是舊的 rev，
+      // 再下一次啟動就對不上 → 圖片消失。接續 rev 之後 _idbRev === rev，兩邊永遠一致。
+      const ok = (bmp, fromIdb, rev) => {
         try {
           const im = mkImage(name, bmp);
-          if (fromIdb) im._idbRev = im.rev;
+          if (fromIdb) { im.rev = rev | 0; im._idbRev = im.rev; }
           slots[i] = im;
         } catch (e) { info.failed.push(name); }
         settle();
@@ -1052,7 +1055,15 @@ PA.store = (() => {
         if (wantIdb) {
           try {
             const got = await idbGetBitmap(name);
-            if (got && (rec_.rev == null || rec_.rev === got.rev)) return ok(got.bmp, true);
+            if (got) {
+              const sameRev = rec_.rev == null || rec_.rev === got.rev;
+              const sameSize = got.bmp.w === (+rec_.w || got.bmp.w) && got.bmp.h === (+rec_.h || got.bmp.h);
+              // rev 對不上但尺寸相同（另一個分頁改過 / 舊資料）：寧可用稍舊的點陣圖也不要整張丟掉
+              if (sameRev || sameSize) {
+                if (!sameRev) (info.warnings ||= []).push(`${name}：點陣圖版本對不上，已用保存的那一份`);
+                return ok(got.bmp, true, got.rev);
+              }
+            }
           } catch (e) {}
         }
         if (url) {
@@ -1083,7 +1094,9 @@ PA.store = (() => {
     });
   } catch (e) {}
   const onForeignSave = cb => { foreignListeners.push(cb); };
-  const takeOver = () => { foreignWrite = 0; };
+  // 以這個分頁為準：另一個分頁的 persist() 可能已經把我們的點陣圖從 IDB 清掉（idbPrune），
+  // 所以全部標成髒的，下一次 persist() 會重寫一遍
+  const takeOver = () => { foreignWrite = 0; for (const im of state.imgs) im._idbRev = -1; };
   const hasForeignWrite = () => !!foreignWrite;
 
   return {

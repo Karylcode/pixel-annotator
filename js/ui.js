@@ -2946,6 +2946,8 @@ PA.ui = (() => {
       }
       if (info.failed && info.failed.length)
         toast(`有 ${info.failed.length} 張圖無法還原：${info.failed.join('、')}`, { kind: 'warn', duration: 8000 });
+      if (info.warnings && info.warnings.length)
+        toast(info.warnings.join('；'), { kind: 'warn', duration: 8000 });
       // 舊版鍵遷移過來之後立刻以新格式寫一份，之後就走 pixann.v2
       if (info.migrated) { save_(); flushSave(); }
     });
