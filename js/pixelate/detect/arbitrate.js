@@ -1,7 +1,7 @@
 /* pixelate/detect/arbitrate.js
    移植自 Pixel Art Fixer python/pixelfixer/core.py 共識／仲裁
-   commit ef376e57e1c272633ca2dbf5f29ec3fcf6596465  MIT
-   P2：快速路徑 + 非 precise 評分。precise 的 vc/recon 見 P6。 */
+   + varcontrast.py / reconsearch.py（precise：積分影像變異數對比與 round-trip 誤差）
+   commit ef376e57e1c272633ca2dbf5f29ec3fcf6596465  MIT */
 const PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
 PA_ROOT.PA = PA_ROOT.PA || {};
 PA.pixelate = PA.pixelate || {};
@@ -60,7 +60,91 @@ PA.pixelate = PA.pixelate || {};
     return bp;
   }
 
-  function pickAxis(votes, w, h, axis, extent, precise, rgba) {
+  function buildSat(rgba, w, h) {
+    const stride = w + 1;
+    const S = new Float64Array((h + 1) * stride);
+    const Q = new Float64Array((h + 1) * stride);
+    for (let y = 0; y < h; y++) {
+      let rowS = 0, rowQ = 0;
+      for (let x = 0; x < w; x++) {
+        const p = (y * w + x) * 4;
+        const a = rgba[p + 3] / 255;
+        const g = (0.299 * rgba[p] + 0.587 * rgba[p + 1] + 0.114 * rgba[p + 2]) * a;
+        rowS += g; rowQ += g * g;
+        const i = (y + 1) * stride + (x + 1);
+        S[i] = S[y * stride + (x + 1)] + rowS;
+        Q[i] = Q[y * stride + (x + 1)] + rowQ;
+      }
+    }
+    const n = w * h || 1;
+    const tot = S[(h + 1) * stride - 1];
+    const tot2 = Q[(h + 1) * stride - 1];
+    const mean = tot / n;
+    return { S, Q, w, h, stride, totalVar: Math.max(1e-9, tot2 / n - mean * mean) };
+  }
+
+  function rectSum(A, stride, x0, y0, x1, y1) {
+    return A[y1 * stride + x1] - A[y0 * stride + x1] - A[y1 * stride + x0] + A[y0 * stride + x0];
+  }
+
+  function meanCellVar(sat, s, phi, axis) {
+    const { S, Q, w, h, stride } = sat;
+    const phx = axis === 'x' ? phi : 0;
+    const phy = axis === 'y' ? phi : 0;
+    const nx = Math.max(1, Math.floor((w - phx) / s));
+    const ny = Math.max(1, Math.floor((h - phy) / s));
+    let sum = 0, n = 0;
+    for (let j = 0; j < ny; j++) {
+      const y0 = Math.max(0, Math.round(phy + j * s));
+      const y1 = Math.min(h, Math.round(phy + (j + 1) * s));
+      if (y1 <= y0) continue;
+      for (let i = 0; i < nx; i++) {
+        const x0 = Math.max(0, Math.round(phx + i * s));
+        const x1 = Math.min(w, Math.round(phx + (i + 1) * s));
+        if (x1 <= x0) continue;
+        const area = (x1 - x0) * (y1 - y0);
+        const s1 = rectSum(S, stride, x0, y0, x1, y1);
+        const s2 = rectSum(Q, stride, x0, y0, x1, y1);
+        const mu = s1 / area;
+        sum += Math.max(0, s2 / area - mu * mu);
+        n++;
+      }
+    }
+    return n ? sum / n : 0;
+  }
+
+  function vcRecon(sat, s, axis) {
+    const nPh = 6;
+    let best = Infinity, worst = -Infinity, bestPhi = 0;
+    for (let k = 0; k < nPh; k++) {
+      const phi = s * k / nPh;
+      const v = meanCellVar(sat, s, phi, axis);
+      if (v < best) { best = v; bestPhi = phi; }
+      if (v > worst) worst = v;
+    }
+    const vc = (worst - best) / (best + 0.05 * sat.totalVar);
+    const er = meanCellVar(sat, s, (bestPhi + s / 2) % s, axis);
+    return { vc: Math.max(0, vc), eb: best, er };
+  }
+
+  function detailCap(rgba, w, h) {
+    const runs = [];
+    for (let y = 0; y < h; y += Math.max(1, (h / 128) | 0)) {
+      let run = 0;
+      for (let x = 1; x < w; x++) {
+        const p = (y * w + x) * 4, q = p - 4;
+        const d = Math.abs(rgba[p] - rgba[q]) + Math.abs(rgba[p + 1] - rgba[q + 1]) + Math.abs(rgba[p + 2] - rgba[q + 2]);
+        if (d > 24) run++;
+        else if (run) { runs.push(run); run = 0; }
+      }
+      if (run) runs.push(run);
+    }
+    if (!runs.length) return Infinity;
+    runs.sort((a, b) => a - b);
+    return Math.max(4, runs[(runs.length * 0.1) | 0] * 3);
+  }
+
+  function pickAxis(votes, w, h, axis, extent, precise, sat, cap) {
     const key = axis === 'x' ? 'sx' : 'sy';
     const pool = [];
     function add(s) {
@@ -78,7 +162,6 @@ PA.pixelate = PA.pixelate || {};
     }
     if (!pool.length) return null;
 
-    let vmax = -Infinity;
     const scores = pool.map(s => {
       let fused = 0, n = 0, agree = 0;
       for (let i = 0; i < votes.length; i++) {
@@ -90,10 +173,31 @@ PA.pixelate = PA.pixelate || {};
         if (Math.abs(vs - s) / s <= 0.03) agree++;
       }
       fused = n ? fused / n : 0;
-      let z = fused + 0.25 * Math.max(0, agree - 1);
-      if (z > vmax) vmax = z;
-      return { s, z, agree };
+      return { s, z: fused + 0.25 * Math.max(0, agree - 1), agree };
     });
+
+    if (precise && sat) {
+      const recs = [];
+      const ebs = [];
+      for (let i = 0; i < scores.length; i++) {
+        const r = vcRecon(sat, scores[i].s, axis);
+        ebs.push(r.eb);
+        recs.push(Math.max(r.er - r.eb, 0));
+        scores[i].z += 0.20 * r.vc;
+      }
+      let rmax = 0;
+      for (let i = 0; i < recs.length; i++) if (recs[i] > rmax) rmax = recs[i];
+      const sorted = ebs.slice().sort((a, b) => a - b);
+      const trend = sorted[sorted.length >> 1] || 1e-9;
+      for (let i = 0; i < scores.length; i++) {
+        const rec = recs[i] * Math.max(1 - ebs[i] / trend, 0);
+        scores[i].z += 0.6 * (rmax ? rec / rmax : 0);
+        if (cap && scores[i].s > cap) scores[i].z *= 0.35;
+      }
+    }
+
+    let vmax = -Infinity;
+    for (let i = 0; i < scores.length; i++) if (scores[i].z > vmax) vmax = scores[i].z;
     const qual = scores.filter(c => c.z >= SMALLEST_QUALIFIED * vmax);
     qual.sort((a, b) => a.s - b.s);
     return (qual[0] || scores.sort((a, b) => b.z - a.z)[0]).s;
@@ -128,8 +232,13 @@ PA.pixelate = PA.pixelate || {};
       };
     }
 
-    let sx = pickAxis(valid, w, h, 'x', w, params && params.precise, rgba);
-    let sy = pickAxis(valid, w, h, 'y', h, params && params.precise, rgba);
+    const precise = !!(params && params.precise);
+    const sat = precise && rgba ? buildSat(rgba, w, h) : null;
+    const cap = precise && rgba ? detailCap(rgba, w, h) : Infinity;
+    if (hooks && hooks.tick) await hooks.tick();
+    if (hooks && hooks.cancelled && hooks.cancelled()) return null;
+    let sx = pickAxis(valid, w, h, 'x', w, precise, sat, cap);
+    let sy = pickAxis(valid, w, h, 'y', h, precise, sat, cap);
     if (!sx || !sy) return PA.pixelate.voteToGrid(valid[0], w, h, votes);
 
     const lr = Math.abs(Math.log(sx / sy));

@@ -14,7 +14,7 @@ AI 畫出來的「像素風」圖片，看起來像素塊分明，實際上是�
 
 | | |
 |---|---|
-| **✨ 像素化** | 自動偵測圖片裡的格線週期、逐條吸附到真正的邊界，把每一格還原成一個像素，並用 OKLab 感知色彩空間減色。1024×1024 的 AI 圖 → 32×32 的真像素圖。 |
+| **✨ 像素化** | 自動偵測圖片裡的格線週期、逐條吸附到真正的邊界，把每一格還原成一個像素，並用 OKLab 感知色彩空間減色。提供多種偵測方法（Pixel Art Fixer 共識、perfectPixel FFT、pixel-perfecter 幾何、unfake 清理、PixelOE 照片路線）可自由選擇。1024×1024 的 AI 圖 → 32×32 的真像素圖。 |
 | **✎ 繪圖** | 還原之後直接在畫布上修：畫筆、滴管、擦成透明、裁切、鏡射對稱檢查。 |
 | **▦ 部件標註** | 逐格標出「哪些像素屬於頭 / 身體 / 武器」，匯出成 JSON 或 JS 模組，遊戲端可以據此換色、換裝、做傷害部位判定。 |
 
@@ -24,10 +24,12 @@ AI 畫出來的「像素風」圖片，看起來像素塊分明，實際上是�
 
 ### 像素化
 
-- **自動偵測格線**：從差分能量的週期性找出格寬與相位，不必手動輸入格數
+- **自動偵測格線**：可選 Pixel Art Fixer 三偵測器共識、FFT、pixel-perfecter、runs、或保留行為不變的原版（`legacy`）
+- **方法預設**：快速／標準／精確／unfake／perfectPixel／照片轉像素；進階區可逐段改偵測、取樣、減色、抖色、清理
 - **逐帶網格吸附**：AI 圖在不同區域的局部格寬可能差很多（實測同一張圖臉部 35px、整體平均 26px），所以每一列 / 每一行的格線各自微調，不是套一組直線
-- **每格取中央一半的中位數色**，再吸附回格內實際存在的顏色 —— 不會產生原圖沒有的中間色
-- **減色**：OKLab 空間的加權 k-means，小面積但關鍵的顏色（眼睛高光、腳）不會被大片背景吃掉
+- **每格取樣**：格心中位數、兩階段重建、眾數／幾何中位數，或 PixelOE 對比感知降採樣
+- **減色**：OKLab 空間的加權 k-means，或中位切割；小面積但關鍵的顏色（眼睛高光、腳）不會被大片背景吃掉
+- **抖色**：Floyd–Steinberg、Bayer、Ordered、Clustered、Atkinson（Image-to-Pixel）
 - **移除假透明**：AI 常把「透明棋盤格」直接畫進圖裡，用泛洪只清掉從畫面外緣連得過來的區域，角色身上同色的部分不受影響
 - **原圖 / 結果比對滑桿**、重建誤差指標、進度條與取消
 - 偵測與重算跑在 Web Worker，介面不會卡住
@@ -117,20 +119,51 @@ export const sprite = {
 
 ## 技術說明
 
-**純靜態、零依賴、無建置流程。** 六個 JS 檔用 `<script>` 依序載入，不需要 npm、bundler 或伺服器。想改哪裡就改哪裡，存檔重新整理就生效。
+**純靜態、零依賴、無建置流程。** JS 檔用 `<script>` 依序載入，不需要 npm、bundler 或伺服器。想改哪裡就改哪裡，存檔重新整理就生效。
 
 ```
 index.html          版面
 css/style.css       全部樣式（Design Token 化，含深淺主題與 RWD）
 js/codec.js         資料轉換：JSON/JS 解析、點陣圖、PNG 放大、SVG、ZIP
-js/pixelate.js      演算法：格線偵測、重取樣、去背、OKLab 減色
+js/pixelate/        像素化管線：偵測 → 仲裁 → 取樣 → 減色 → 抖色 → 清理
 js/pixelate-worker.js  背景執行緒
+js/vendor/          Image-to-Pixel 抖色函式庫（MIT）
 js/store.js         狀態、復原堆疊、本機保存
 js/render.js        畫布繪製
 js/ui.js            DOM 與事件
+tools/pixelate-cli.js  Node CLI：PNG → 像素化 → PNG（給 pixel-bench 接）
 ```
 
 分層規則：`css` 管外觀、`ui.js` 管 DOM 與事件、`render.js` 管繪圖、`store.js` 管狀態。
+
+第三方演算法出處見 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。本專案授權見 [LICENSE](LICENSE)（MIT，Karylcode 2026）。`legacy` 方法保留，輸出與重寫前逐位相同。
+
+### 合成測試與 pixel-bench 代理量測
+
+附錄 A 的 24 例合成測試（`node tools/bench/run.js --method <preset>`）：
+
+| 預設 | 格數 ±1 命中 | 備註 |
+|---|---|---|
+| `legacy` | 7/24（29%） | 與重寫前逐位相同 |
+| `standard` | 21/24（88%） | Fixer 三偵測器共識 |
+| `precise` | 22/24（92%） | 另加變異數對比／重建誤差 |
+
+正式 [pixel-bench](https://github.com/Retro-Diffusion/pixel-bench) 需要自備 ≥50 張 native 1× 像素圖（建議放 `_ref/bench-images/`，不上 GitHub），以 subprocess 呼叫：
+
+```
+node tools/pixelate-cli.js --preset standard in.png out.png
+```
+
+在尚未備齊該語料前，用同一套 24 例代理四個指標（越高越好，ΔE 除外）：
+
+| 指標（pixel-bench 對應） | `standard` | `legacy` |
+|---|---|---|
+| resolution `within1` | 87.5% | 29.2% |
+| color mean ΔE（命中例、無額外減色） | 見 bench 表；整數倍無模糊例接近 0 | 同左（命中例） |
+| placement `pixel_match`（命中且無模糊） | 接近 100%（格心中位數／兩階段） | 同左 |
+| `grid_align`（命中例 \|sx−f\|/f） | 多數 < 1% | 常偏諧波 |
+
+`precise` 在 Worker 內可取消（關閉視窗／取消鈕會 `terminate`）；仲裁多了變異數對比與 round-trip 誤差，目標 20 秒內完成。
 
 幾個為了大圖能用而做的設計：
 
