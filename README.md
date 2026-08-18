@@ -130,8 +130,10 @@ js/pixelate-worker.js  背景執行緒
 js/vendor/          Image-to-Pixel 抖色函式庫（MIT）
 js/store.js         狀態、復原堆疊、本機保存
 js/render.js        畫布繪製
-js/ui.js            DOM 與事件
+js/ui.js            DOM 與事件（orchestrator）
+js/ui/              UI 子控制器：overlays / export / persistence / pixelate-dialog / canvas-input
 tools/pixelate-cli.js  Node CLI：PNG → 像素化 → PNG（給 pixel-bench 接）
+tools/check.js      零依賴檢查入口（語法、preset、回歸、保存、顏色、靜態資源）
 ```
 
 分層規則：`css` 管外觀、`ui.js` 管 DOM 與事件、`render.js` 管繪圖、`store.js` 管狀態。
@@ -140,30 +142,33 @@ tools/pixelate-cli.js  Node CLI：PNG → 像素化 → PNG（給 pixel-bench �
 
 ### 合成測試與 pixel-bench 代理量測
 
-附錄 A 的 24 例合成測試（`node tools/bench/run.js --method <preset>`）：
+> **合成測試只衡量特定格線重建案例，不代表真實 AI 圖的整體品質排名。預設方法依人工真圖測試決定，目前為 `pixel-perfecter`。**
+>
+> 附錄 A 的 24 例（`node tools/bench/run.js --method <preset>`）是回歸護欄，不是自動選模型的依據。CI 對 `pixel-perfecter` 只檢查 `--min-hit 13` 這道合成門檻。
 
 | 預設 | 格數 ±1 命中 | 備註 |
 |---|---|---|
 | `legacy` | 7/24（29%） | 與重寫前逐位相同 |
-| `standard` | 21/24（88%） | Fixer 三偵測器共識 |
-| `precise` | 22/24（92%） | 另加變異數對比／重建誤差 |
+| `pixel-art-fixer`（舊名 `standard`） | 22/24（91.7%） | Fixer 三偵測器共識 |
+| `pixel-art-fixer-full`（舊名 `precise`） | 23/24（95.8%） | 另加變異數對比／重建誤差 |
+| `pixel-perfecter`（預設） | 13/24（54%） | 四路幾何偵測；人工真圖評估選為預設 |
 
 正式 [pixel-bench](https://github.com/Retro-Diffusion/pixel-bench) 需要自備 ≥50 張 native 1× 像素圖（建議放 `_ref/bench-images/`，不上 GitHub），以 subprocess 呼叫：
 
 ```
-node tools/pixelate-cli.js --preset standard in.png out.png
+node tools/pixelate-cli.js --preset pixel-perfecter in.png out.png
 ```
 
 在尚未備齊該語料前，用同一套 24 例代理四個指標（越高越好，ΔE 除外）：
 
-| 指標（pixel-bench 對應） | `standard` | `legacy` |
+| 指標（pixel-bench 對應） | `pixel-art-fixer` | `legacy` |
 |---|---|---|
-| resolution `within1` | 87.5% | 29.2% |
+| resolution `within1` | 91.7% | 29.2% |
 | color mean ΔE（命中例、無額外減色） | 見 bench 表；整數倍無模糊例接近 0 | 同左（命中例） |
 | placement `pixel_match`（命中且無模糊） | 接近 100%（格心中位數／兩階段） | 同左 |
 | `grid_align`（命中例 \|sx−f\|/f） | 多數 < 1% | 常偏諧波 |
 
-`precise` 在 Worker 內可取消（關閉視窗／取消鈕會 `terminate`）；仲裁多了變異數對比與 round-trip 誤差，目標 20 秒內完成。
+`pixel-art-fixer-full` 在 Worker 內可取消（關閉視窗／取消鈕會 `terminate`）；仲裁多了變異數對比與 round-trip 誤差，目標 20 秒內完成。舊別名 `standard`／`precise` 在 CLI 與 benchmark 仍可用，輸出一律顯示正式 ID。
 
 幾個為了大圖能用而做的設計：
 

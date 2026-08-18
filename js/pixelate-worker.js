@@ -1,32 +1,38 @@
-/* pixelate-worker — 偵測 / 重算在背景執行緒。由 pixelate/index.js 的 callAsync 啟動。 */
-importScripts(
-  'pixelate/lib/colour.js',
-  'pixelate/lib/profile.js',
-  'pixelate/lib/fft.js',
-  'pixelate/lib/morph.js',
-  'pixelate/lib/canny.js',
-  'pixelate/grid.js',
-  'pixelate/detect/legacy.js',
-  'pixelate/detect/autocorr.js',
-  'pixelate/detect/runlength.js',
-  'pixelate/detect/selfsim.js',
-  'pixelate/detect/fft.js',
-  'pixelate/detect/perfecter.js',
-  'pixelate/detect/hough.js',
-  'pixelate/detect/runs.js',
-  'pixelate/detect/arbitrate.js',
-  'pixelate/sample/center-median.js',
-  'pixelate/sample/two-stage.js',
-  'pixelate/sample/stats.js',
-  'pixelate/sample/geomedian.js',
-  'pixelate/sample/pixeloe.js',
-  'pixelate/quant/oklab-kmeans.js',
-  'pixelate/quant/median-cut.js',
-  'pixelate/dither/adapter.js',
-  'pixelate/clean/bg.js',
-  'pixelate/clean/morph.js',
-  'pixelate/index.js'
-);
+/* pixelate-worker — 偵測 / 重算在背景執行緒。由 pixelate/index.js 的 callAsync 啟動。
+   importScripts 相對路徑不會自動帶 Worker 自己的 ?v=；子資源必須接到同一個版本參數，
+   否則主執行緒換版後 Worker 仍可能載入快取裡的舊演算法。 */
+(function loadPixelateScripts() {
+  const q = self.location.search || '';
+  const files = [
+    'pixelate/lib/colour.js',
+    'pixelate/lib/profile.js',
+    'pixelate/lib/fft.js',
+    'pixelate/lib/morph.js',
+    'pixelate/lib/canny.js',
+    'pixelate/grid.js',
+    'pixelate/detect/legacy.js',
+    'pixelate/detect/autocorr.js',
+    'pixelate/detect/runlength.js',
+    'pixelate/detect/selfsim.js',
+    'pixelate/detect/fft.js',
+    'pixelate/detect/perfecter.js',
+    'pixelate/detect/hough.js',
+    'pixelate/detect/runs.js',
+    'pixelate/detect/arbitrate.js',
+    'pixelate/sample/center-median.js',
+    'pixelate/sample/two-stage.js',
+    'pixelate/sample/stats.js',
+    'pixelate/sample/geomedian.js',
+    'pixelate/sample/pixeloe.js',
+    'pixelate/quant/oklab-kmeans.js',
+    'pixelate/quant/median-cut.js',
+    'pixelate/dither/adapter.js',
+    'pixelate/clean/bg.js',
+    'pixelate/clean/morph.js',
+    'pixelate/index.js',
+  ];
+  importScripts.apply(self, files.map(f => f + q));
+})();
 
 self.onmessage = (e) => {
   const d = e.data;
