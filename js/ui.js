@@ -1352,6 +1352,8 @@ PA.ui = (() => {
     if (cfg.quant) parts.push('減色 ' + cfg.quant);
     if (cfg.dither && cfg.dither !== 'none') parts.push('抖色 ' + cfg.dither);
     const tag = p.id === PX_DEFAULT ? ' <span class="sub">（預設方法）</span>' : '';
+    // 選單只寫技術名稱，來源專案寫在這裡
+    if (p.source) parts.unshift('來源 ' + p.source);
     pop.innerHTML = `<b>${p.label}</b>${tag}<br>${p.desc || ''}<br><span class="sub">${parts.join(' · ')}</span>`;
     pop.classList.remove('hide');
   }
@@ -2890,7 +2892,7 @@ PA.ui = (() => {
       el.onchange = () => {
         if (!$('px-method').querySelector('option[value=custom]')) {
           const o = document.createElement('option');
-          o.value = 'custom'; o.textContent = '自訂 · 手動組合偵測器';
+          o.value = 'custom'; o.textContent = '自訂組合';
           $('px-method').appendChild(o);
         }
         $('px-method').value = 'custom';

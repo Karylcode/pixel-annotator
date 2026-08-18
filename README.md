@@ -25,7 +25,7 @@ AI 畫出來的「像素風」圖片，看起來像素塊分明，實際上是�
 ### 像素化
 
 - **自動偵測格線**：可選 Pixel Art Fixer 三偵測器共識、FFT、pixel-perfecter、runs、或保留行為不變的原版（`legacy`）
-- **方法預設**（以來源專案命名）：Pixel Art Fixer（三偵測器共識／全偵測器證據仲裁）、perfectPixel、pixel-perfecter、proper-pixel-art、unfake.js、spritegrid、PixelOE、Image-to-Pixel、legacy（本工具原版）；進階區可逐段改取樣、偵測器、減色、抖色、清理
+- **方法預設**（括號內是來源專案，介面上按 ⓘ 可看）：三偵測器共識／全偵測器仲裁（Pixel Art Fixer）、FFT 主週期偵測（perfectPixel）、四路幾何偵測（pixel-perfecter）、霍夫格線偵測（proper-pixel-art）、連續同色段偵測 + 清理層（unfake.js）、幾何中位數取色（spritegrid）、輪廓感知降採樣（PixelOE）、指定寬度 + 抖色（Image-to-Pixel）、本工具原版引擎（legacy）；進階區可逐段改取樣、偵測器、減色、抖色、清理
 - **逐帶網格吸附**：AI 圖在不同區域的局部格寬可能差很多（實測同一張圖臉部 35px、整體平均 26px），所以每一列 / 每一行的格線各自微調，不是套一組直線
 - **每格取樣**：格心中位數、兩階段重建、眾數／幾何中位數，或 PixelOE 對比感知降採樣
 - **減色**：OKLab 空間的加權 k-means，或中位切割；小面積但關鍵的顏色（眼睛高光、腳）不會被大片背景吃掉
