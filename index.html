@@ -406,14 +406,19 @@
           <span class="grouplabel" id="px-viewlabel">原圖</span>
           <label class="chk sm px-src-only"><input type="checkbox" id="px-gridview" checked>顯示格線</label>
           <span class="grow"></span>
-          <label class="chk sm" title="切換顯示原圖，跟結果來回對照"><input type="checkbox" id="px-compare" checked>比對原圖</label>
+          <label class="chk sm" title="把原圖疊在結果上，拖下面的拉條左右比對"><input type="checkbox" id="px-compare">比對原圖</label>
           <span class="sub mono" id="px-outinfo"></span>
         </div>
-        <!-- 原圖與結果共用同一格，一次只顯示一張；由「比對原圖」切換 -->
+        <!-- 原圖與結果疊在同一格：還沒有結果時只顯示原圖；勾「比對原圖」則原圖疊在結果上，
+             用 clip-path 只露出拉條左邊的部分 -->
         <div class="pxview showsrc" id="px-view">
-          <canvas id="px-src"></canvas>
-          <canvas id="px-out"></canvas>
+          <div class="pxstack" id="px-stack">
+            <canvas id="px-out"></canvas>
+            <canvas id="px-src"></canvas>
+            <div class="pxdiv" aria-hidden="true"><span class="pxlab pxlab-src">原圖</span><span class="pxlab pxlab-out">結果</span></div>
+          </div>
         </div>
+        <input type="range" id="px-split" class="hide" min="0" max="100" value="50" aria-label="比對分割位置（左：原圖，右：結果）" title="左：原圖 · 右：結果">
       </div>
       <div class="pxside">
         <div class="pxgroup">

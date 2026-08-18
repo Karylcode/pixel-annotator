@@ -1210,8 +1210,6 @@ PA.ui = (() => {
   /* ═══════════ 像素化視窗（三步驟） ═══════════ */
 
   let pxGrid = null, pxResult = null;
-  // 開窗時還沒有結果，先停在原圖；第一次算出結果就自動翻到結果，之後交給使用者切
-  let pxSawResult = false;
   let pxProfiles = null, pxProfileIm = null, pxProfileRev = -1;   // 邊緣能量只跟點陣圖有關，依 (圖, 版本) 快取
   let pxAbort = false, pxBusy = false;
   const PX_K_DEFAULT = 48;   // 像素化的預設顏色上限（0 = 不減色）
@@ -1486,12 +1484,16 @@ PA.ui = (() => {
     cx.putImageData(id, 0, 0);
   }
 
-  // 預覽只有一格：on = 顯示原圖，off = 顯示結果
-  function pxSetCompare(on) {
-    $('px-view').classList.toggle('showsrc', on);
-    $('px-viewlabel').textContent = on ? '原圖' : '結果';
-    // 剛切回來時原圖是 display:none 畫的，clientWidth 為 0 會讓格線寬度算錯，要重畫
-    if (on && store.has()) pxDrawSource();
+  // 預覽只有一格，三種狀態：還沒有結果 → 只給原圖；有結果 → 只看結果，或勾比對做左右擦除
+  function pxSetView() {
+    const has = !!pxResult, cmp = has && $('px-compare').checked;
+    const v = $('px-view');
+    v.classList.toggle('showsrc', !has);
+    v.classList.toggle('cmp', cmp);
+    $('px-split').classList.toggle('hide', !cmp);
+    $('px-viewlabel').textContent = !has ? '原圖' : (cmp ? '原圖 / 結果' : '結果');
+    // 原圖剛從 display:none 變回可見時 clientWidth 是 0，格線寬度會算錯，要重畫
+    if ((!has || cmp) && store.has()) pxDrawSource();
   }
 
   function pxFill(g) {
@@ -1565,8 +1567,7 @@ PA.ui = (() => {
       if (wasDisabled && document.activeElement === $('px-cancel')) okBtn.focus();
       pxDrawSource();
       pxDrawResult(r.px);
-      // 第一次算出結果就自動翻到結果那面
-      if (!pxSawResult) { pxSawResult = true; $('px-compare').checked = false; pxSetCompare(false); }
+      pxSetView();
 
       let wmin = Infinity, wmax = -Infinity;
       if (pxGrid.mesh) {
@@ -1799,20 +1800,17 @@ PA.ui = (() => {
     // 有圖：先放「取消」（套用要等偵測完才啟用，完成後焦點會移過去）；沒圖：放「選擇圖片」
     openDialog(pxModal(), store.has() ? $('px-cancel') : $('px-open'));
     pxSyncSourceInfo();
-    // 還沒偵測完就沒有結果可看，一律從原圖開始
-    pxSawResult = false;
-    $('px-compare').checked = true;
-    $('px-view').classList.add('showsrc');
-    $('px-viewlabel').textContent = '原圖';
     $('px-outinfo').textContent = '';
     if (store.has()) {
       // 先把原圖畫上去（不帶上一張圖留下的格線），偵測是 async 的
       pxGrid = null; pxResult = null;
+      pxSetView();                         // 還沒有結果 → 先停在原圖
       $('px-ok').disabled = true;          // 有結果才能套用
       pxDrawSource();
       pxDetect();
     } else {
       pxGrid = null; pxResult = null;
+      pxSetView();
       $('px-ok').disabled = true;
       $('px-auto').textContent = '—';
       $('px-warn').textContent = '還沒有圖片：按「選擇圖片」，或把圖片拖進這個視窗';
@@ -2837,7 +2835,8 @@ PA.ui = (() => {
     });
     $('px-snap').oninput = () => { pxNeedError = true; pxRecomputeSoon(); };
     $('px-gridview').oninput = pxDrawSource;
-    $('px-compare').oninput = () => { pxSawResult = true; pxSetCompare($('px-compare').checked); };
+    $('px-compare').oninput = pxSetView;
+    $('px-split').oninput = () => { $('px-stack').style.setProperty('--split', $('px-split').value + '%'); };
     pxModal().onclick = e => { if (e.target === pxModal()) closePixelate(); };
 
     /* ---- 匯入標註 ---- */
