@@ -553,7 +553,9 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
 #px-srcinfo { color: var(--fg-2); font-size: var(--fs-sm); }
 .pxmid { display: flex; gap: var(--sp-4); flex: 1; min-height: 0; }
 /* 預覽只有一格，置中；原圖與結果疊在同一個位置 */
-.pxpane { --pxview-max: 64vh; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+/* 預覽上限：除了佔螢幕比例，還要扣掉標題列 / 來源列 / 拉條 / 底部按鈕這些固定高度，
+   否則矮螢幕（例如 1280×560）上預覽會長到蓋住底部按鈕 */
+.pxpane { --pxview-max: min(64vh, calc(100vh - 250px)); flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
 .pxpanehead { display: flex; align-items: center; gap: var(--sp-2); min-height: 22px; }
 .pxview { display: flex; justify-content: center; }
 .pxstack { position: relative; --split: 50%; width: min(100%, var(--pxview-max)); }
@@ -593,7 +595,11 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
 .pxpane .px-src-only { display: none; }
 .pxpane:has(.pxview.showsrc) .px-src-only,
 .pxpane:has(.pxview.cmp) .px-src-only { display: flex; }
-.pxside { width: 320px; flex: none; display: flex; flex-direction: column; gap: var(--sp-4); }
+/* 側欄自己捲：展開「進階」後內容會比對話框高，不自己捲的話會溢出去蓋掉底部按鈕 */
+.pxside {
+  width: 320px; flex: none; display: flex; flex-direction: column; gap: var(--sp-4);
+  min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: var(--sp-1);
+}
 .pxgroup { display: flex; flex-direction: column; gap: var(--sp-2); }
 .pxinfo { font-size: var(--fs-sm); color: var(--fg-2); line-height: 1.6; }
 .pxinfo b { color: var(--fg-1); font-weight: 500; }
@@ -874,7 +880,8 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
   .dialog .box, .dialog .box.wide { max-height: calc(100dvh - 16px); padding: var(--sp-3); }
   .keygrid { grid-template-columns: 1fr 1fr; }
   .pxmid { flex-direction: column; }
-  .pxside { width: auto; }
+  /* 直排時改成整個 .pxmid 捲（見下面 #pxmodal .pxmid），側欄不要再自己捲一層 */
+  .pxside { width: auto; overflow-y: visible; padding-right: 0; }
   .dfoot { flex-wrap: wrap; }
 
   /* 像素化：iOS Safari 對 flex:1 + overflow 會算不出高度，整塊被工具列吃掉。
