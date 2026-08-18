@@ -1213,8 +1213,89 @@ PA.ui = (() => {
   let pxProfiles = null, pxProfileIm = null, pxProfileRev = -1;   // 邊緣能量只跟點陣圖有關，依 (圖, 版本) 快取
   let pxAbort = false, pxBusy = false;
   const PX_K_DEFAULT = 48;   // 像素化的預設顏色上限（0 = 不減色）
+  const PX_PREFS_KEY = 'pixann.px';
+  let pxVotes = [];
+  let pxForceVoteId = null;
 
   const pxModal = () => $('pxmodal');
+
+  function pxReadPrefs() {
+    try { return JSON.parse(localStorage.getItem(PX_PREFS_KEY) || 'null'); }
+    catch { return null; }
+  }
+  function pxSavePrefs() {
+    try {
+      localStorage.setItem(PX_PREFS_KEY, JSON.stringify({ preset: $('px-method').value || 'legacy' }));
+    } catch {}
+  }
+  function pxFillMethods() {
+    const sel = $('px-method');
+    if (!sel || sel.options.length) return;
+    for (const p of PA.pixelate.presets || []) {
+      const o = document.createElement('option');
+      o.value = p.id;
+      o.textContent = p.label;
+      sel.appendChild(o);
+    }
+    const saved = pxReadPrefs();
+    if (saved && saved.preset && [...sel.options].some(o => o.value === saved.preset)) sel.value = saved.preset;
+  }
+  function pxShowMethodInfo(on) {
+    const pop = $('px-method-pop');
+    if (!on) { pop.classList.add('hide'); return; }
+    const p = (PA.pixelate.presets || []).find(x => x.id === $('px-method').value);
+    if (!p) { pop.classList.add('hide'); return; }
+    const cfg = p.config || {};
+    pop.innerHTML = `<b>${p.label}</b><br>${p.desc || ''}<br><span class="sub">偵測 ${ (cfg.detectors || []).join('、') || '—'} · 取樣 ${cfg.sample || '—'} · 減色 ${cfg.quant || '—'}</span>`;
+    pop.classList.remove('hide');
+  }
+  function pxRenderVotes(votes, usedId) {
+    const tb = $('px-votes') && $('px-votes').tBodies[0];
+    if (!tb) return;
+    tb.innerHTML = '';
+    const rows = (votes || []).filter(Boolean);
+    const consNx = pxGrid && pxGrid.nx;
+    const add = (v, isCons) => {
+      const tr = document.createElement('tr');
+      const nx = v.meta && v.meta.nx != null ? v.meta.nx : (v.nx != null ? v.nx : (isCons && pxGrid ? pxGrid.nx : '—'));
+      const ny = v.meta && v.meta.ny != null ? v.meta.ny : (v.ny != null ? v.ny : (isCons && pxGrid ? pxGrid.ny : '—'));
+      const sx = v.sx != null ? Number(v.sx).toFixed(2) : (isCons && pxGrid ? pxGrid.sx.toFixed(2) : '—');
+      const score = v.score == null ? 0 : v.score;
+      const ms = v.ms == null ? '' : Math.round(v.ms);
+      const warn = !isCons && consNx != null && nx !== '—' && Math.abs(nx - consNx) > 1;
+      const using = (usedId && v.id === usedId) || (isCons && !usedId);
+      if (using) tr.classList.add('px-vote-on');
+      tr.innerHTML =
+        `<td>${warn ? '<span class="warn">⚠</span>' : ''}${isCons ? '共識／仲裁' : (v.label || v.id)}</td>` +
+        `<td>${nx}×${ny}</td><td>${sx}</td>` +
+        `<td><span class="px-bar" title="${score.toFixed(2)}"><i style="width:${Math.round(Math.max(0, Math.min(1, score)) * 100)}%"></i></span></td>` +
+        `<td>${ms === '' ? '—' : ms}</td>` +
+        `<td>${using ? '使用中' : (v.status || '完成')}</td>`;
+      tr.onclick = () => {
+        if (isCons) {
+          pxForceVoteId = null;
+          if (pxGrid && pxGrid._arb) Object.assign(pxGrid, pxGrid._arb);
+          pxFill(pxGrid);
+          pxNeedError = true;
+          pxRecomputeSoon();
+          pxRenderVotes(pxVotes, null);
+          return;
+        }
+        pxForceVoteId = v.id;
+        const g = PA.pixelate.voteToGrid(v, store.img().w, store.img().h, pxVotes);
+        if (!g) return;
+        if (pxGrid && !pxGrid._arb) pxGrid._arb = { sx: pxGrid.sx, sy: pxGrid.sy, phx: pxGrid.phx, phy: pxGrid.phy, nx: pxGrid.nx, ny: pxGrid.ny };
+        pxGrid = Object.assign(pxGrid || {}, g);
+        pxFill(pxGrid);
+        pxNeedError = true;
+        pxRecomputeSoon();
+        pxRenderVotes(pxVotes, v.id);
+      };
+      tb.appendChild(tr);
+    };
+    rows.forEach(v => add(v, false));
+    if (pxGrid) add({ id: 'consensus', label: '共識／仲裁', sx: pxGrid.sx, nx: pxGrid.nx, ny: pxGrid.ny, score: 1, ms: null, status: '完成' }, true);
+  }
 
   // 快取 key 是圖片物件 + 版本，不是檔名：裁切 / 像素化 / 復原會就地換掉 rgba 但保留名稱，
   // 只認名稱會拿舊尺寸的陣列去索引新圖
@@ -1433,6 +1514,9 @@ PA.ui = (() => {
     pxSetBusy(true);
     $('px-auto').textContent = '偵測格線中…';
     $('px-errline').textContent = '';
+    pxVotes = [];
+    pxForceVoteId = null;
+    pxRenderVotes([{ id: $('px-method').value || 'legacy', status: '執行中', score: 0 }], null);
 
     const g = await PA.pixelate.callAsync('detect', { rgba: im.rgba, w: im.w, h: im.h }, {
       onProgress: f => { $('px-pfill').style.width = Math.round(f * 100) + '%'; },
@@ -1455,6 +1539,15 @@ PA.ui = (() => {
       $('px-gridview').checked = false;   // 1:1 時格線沒意義，預設關，免得整片洋紅
     }
     pxFill(pxGrid);
+    if (g) {
+      pxVotes = [{
+        id: 'legacy', label: '原版',
+        sx: g.sx, sy: g.sy, phx: g.phx, phy: g.phy, score: 1,
+        meta: { nx: g.nx, ny: g.ny, scoreX: g.scoreX, scoreY: g.scoreY },
+        status: '完成',
+      }];
+    } else pxVotes = [];
+    pxRenderVotes(pxVotes, null);
 
     // 顏色上限的上限 = 實際色數；預設 48（跟調色盤一頁的格數一致），但圖沒那麼多色就不用減
     const srcColours = PA.pixelate.countColours(im.rgba).size;
@@ -1548,6 +1641,7 @@ PA.ui = (() => {
   }
 
   function openPixelate() {
+    pxFillMethods();
     // 有圖：先放「取消」（套用要等偵測完才啟用，完成後焦點會移過去）；沒圖：放「選擇圖片」
     openDialog(pxModal(), store.has() ? $('px-cancel') : $('px-open'));
     pxSyncSourceInfo();
@@ -2546,6 +2640,11 @@ PA.ui = (() => {
     });
     $('px-ok').onclick = applyPixelate;
     $('px-redetect').onclick = pxDetect;
+    pxFillMethods();
+    $('px-method').onchange = () => { pxSavePrefs(); pxDetect(); };
+    $('px-method-info').onmouseenter = () => pxShowMethodInfo(true);
+    $('px-method-info').onmouseleave = () => pxShowMethodInfo(false);
+    $('px-method-info').onclick = e => { e.preventDefault(); pxShowMethodInfo($('px-method-pop').classList.contains('hide')); };
     ['px-w', 'px-h'].forEach(id => { $(id).oninput = () => pxOnEdit('count'); });
     ['px-sx', 'px-sy', 'px-phx', 'px-phy'].forEach(id => { $(id).oninput = () => pxOnEdit('size'); });
     $('px-k').oninput = () => { $('px-k-range').value = Math.min(+$('px-k-range').max, Math.max(0, +$('px-k').value || 0)); pxRecomputeSoon(); };

@@ -602,6 +602,27 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
 #px-pfill { height: 100%; width: 0; background: var(--accent); border-radius: 3px; transition: width var(--dur-fast) linear; }
 #pxmodal .box.over { border-color: var(--focus); box-shadow: 0 0 0 2px var(--focus) inset, var(--shadow-3); }
 #pxmodal .box.busy .pxmid, #pxmodal .box.busy .pxstep, #pxmodal .box.busy .dfoot { opacity: .5; pointer-events: none; }
+#pxmodal .px-method-row { display: flex; align-items: flex-end; gap: var(--sp-2); }
+#pxmodal .px-method-row label { display: flex; flex-direction: column; gap: var(--sp-1); flex: 1; font-size: var(--fs-data); color: var(--fg-3); }
+#pxmodal #px-method { width: 100%; }
+#pxmodal .px-method-pop {
+  font-size: var(--fs-sm); color: var(--fg-2); line-height: 1.55;
+  background: var(--surface-2); border: 1px solid var(--line-1); border-radius: var(--r-md);
+  padding: var(--sp-2) var(--sp-3);
+}
+#pxmodal .px-method-pop b { color: var(--fg-1); font-weight: 600; }
+#pxmodal .px-votes-wrap { overflow-x: auto; max-width: 100%; }
+#pxmodal #px-votes { width: 100%; border-collapse: collapse; font-size: var(--fs-data); }
+#pxmodal #px-votes th, #pxmodal #px-votes td {
+  text-align: left; padding: 3px 4px; border-bottom: 1px solid var(--line-1);
+  white-space: nowrap; color: var(--fg-2);
+}
+#pxmodal #px-votes th { color: var(--fg-3); font-weight: 500; }
+#pxmodal #px-votes tr.px-vote-on td { color: var(--fg-1); font-weight: 600; }
+#pxmodal #px-votes tr { cursor: pointer; }
+#pxmodal #px-votes .px-bar { display: block; height: 4px; width: 48px; background: var(--surface-3); border-radius: 2px; overflow: hidden; }
+#pxmodal #px-votes .px-bar > i { display: block; height: 100%; background: var(--accent); }
+#pxmodal #px-votes .warn { margin-right: 2px; }
 
 /* ═══ Toast v2：右下堆疊、語意色條、動作鈕 ═══ */
 #toasts {

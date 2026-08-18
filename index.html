@@ -424,7 +424,29 @@
       <div class="pxside">
         <div class="pxgroup">
           <div class="grouplabel">② 格線</div>
+          <div class="px-method-row">
+            <label>方法
+              <select id="px-method" aria-label="像素化方法"></select>
+            </label>
+            <button type="button" class="btn icon" id="px-method-info" aria-label="方法說明" title="方法說明">ⓘ</button>
+          </div>
+          <div id="px-method-pop" class="px-method-pop hide" role="tooltip"></div>
           <div id="px-auto" class="pxinfo">—</div>
+          <div class="px-votes-wrap">
+            <table id="px-votes">
+              <thead>
+                <tr>
+                  <th>偵測器</th>
+                  <th>格數</th>
+                  <th>格寬</th>
+                  <th>信心</th>
+                  <th>耗時</th>
+                  <th>狀態</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
           <div id="px-errline" class="pxinfo"></div>
           <label class="chk"><input type="checkbox" id="px-snap" checked>自動吸附格線（建議）</label>
           <div class="sub" id="px-spread"></div>
@@ -542,7 +564,14 @@
 </div>
 
 <script src="js/codec.js"></script>
-<script src="js/pixelate.js"></script>
+<script src="js/pixelate/lib/colour.js"></script>
+<script src="js/pixelate/lib/profile.js"></script>
+<script src="js/pixelate/grid.js"></script>
+<script src="js/pixelate/detect/legacy.js"></script>
+<script src="js/pixelate/sample/center-median.js"></script>
+<script src="js/pixelate/quant/oklab-kmeans.js"></script>
+<script src="js/pixelate/clean/bg.js"></script>
+<script src="js/pixelate/index.js"></script>
 <script src="js/store.js"></script>
 <script src="js/render.js"></script>
 <script src="js/ui.js"></script>
