@@ -403,23 +403,17 @@
     <div class="pxmid">
       <div class="pxpane">
         <div class="pxpanehead">
-          <span class="grouplabel">原圖</span>
-          <label class="chk sm"><input type="checkbox" id="px-gridview" checked>顯示格線</label>
-        </div>
-        <canvas id="px-src"></canvas>
-      </div>
-      <div class="pxpane">
-        <div class="pxpanehead">
-          <span class="grouplabel">結果</span>
-          <label class="chk sm" title="在結果上疊一層原圖，拖滑桿左右比對"><input type="checkbox" id="px-compare">比對原圖</label>
+          <span class="grouplabel" id="px-viewlabel">原圖</span>
+          <label class="chk sm px-src-only"><input type="checkbox" id="px-gridview" checked>顯示格線</label>
+          <span class="grow"></span>
+          <label class="chk sm" title="切換顯示原圖，跟結果來回對照"><input type="checkbox" id="px-compare" checked>比對原圖</label>
           <span class="sub mono" id="px-outinfo"></span>
         </div>
-        <div class="pxcmp" id="px-cmp">
+        <!-- 原圖與結果共用同一格，一次只顯示一張；由「比對原圖」切換 -->
+        <div class="pxview showsrc" id="px-view">
+          <canvas id="px-src"></canvas>
           <canvas id="px-out"></canvas>
-          <canvas id="px-cmpsrc" aria-hidden="true"></canvas>
-          <div class="pxdiv" aria-hidden="true"><span class="pxlab pxlab-src">原圖</span><span class="pxlab pxlab-out">結果</span></div>
         </div>
-        <input type="range" id="px-split" class="hide" min="0" max="100" value="50" aria-label="比對分割位置（左：原圖，右：結果）" title="左：原圖 · 右：結果">
       </div>
       <div class="pxside">
         <div class="pxgroup">

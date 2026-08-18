@@ -552,10 +552,12 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
 .stepnum { font-weight: 600; font-size: var(--fs-md); color: var(--fg-1); flex: none; }
 #px-srcinfo { color: var(--fg-2); font-size: var(--fs-sm); }
 .pxmid { display: flex; gap: var(--sp-4); flex: 1; min-height: 0; }
-.pxpane { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
-.pxpanehead { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); min-height: 22px; }
+/* 預覽只有一格：原圖與結果疊用同一個位置，由「比對原圖」切換顯示哪一張 */
+.pxpane { --pxview-max: 64vh; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.pxpanehead { display: flex; align-items: center; gap: var(--sp-2); min-height: 22px; }
 .pxpane canvas {
-  width: 100%; aspect-ratio: 1; max-height: 56vh; object-fit: contain;
+  display: block; margin-inline: auto;                    /* 單格預覽置中 */
+  width: min(100%, var(--pxview-max)); aspect-ratio: 1; max-height: var(--pxview-max); object-fit: contain;
   border: 1px solid var(--line-1); border-radius: var(--r-md);
   background: repeating-conic-gradient(var(--checker-a) 0 25%, var(--checker-b) 0 50%) 0 0 / 16px 16px;
 }
@@ -563,25 +565,12 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
 #px-src { image-rendering: auto; }
 /* 結果是放大顯示，必須維持硬邊 */
 #px-out { image-rendering: pixelated; }
-/* 原圖 / 結果比對：原圖疊在結果上，用 clip-path 只露出滑桿左邊的部分 */
-.pxcmp { position: relative; --split: 50%; }
-.pxcmp canvas { display: block; }
-#px-cmpsrc, .pxdiv { display: none; }
-.pxcmp.on #px-cmpsrc {
-  display: block; position: absolute; inset: 0; width: 100%; height: 100%;
-  image-rendering: auto; pointer-events: none; clip-path: inset(0 calc(100% - var(--split)) 0 0);
-}
-.pxcmp.on .pxdiv {
-  display: block; position: absolute; top: 0; bottom: 0; left: var(--split); width: 2px; margin-left: -1px;
-  background: var(--focus); pointer-events: none; box-shadow: 0 0 0 1px #0008;
-}
-.pxcmp.on .pxdiv .pxlab {
-  position: absolute; top: var(--sp-2); font: 600 var(--fs-data)/1 var(--font); color: var(--focus-ink);
-  background: var(--focus); padding: 2px 6px; border-radius: var(--r-pill);
-}
-.pxcmp.on .pxdiv .pxlab-src { right: var(--sp-1); }
-.pxcmp.on .pxdiv .pxlab-out { left: var(--sp-1); }
-#px-split { width: 100%; }
+.pxview #px-src { display: none; }
+.pxview.showsrc #px-src { display: block; }
+.pxview.showsrc #px-out { display: none; }
+/* 「顯示格線」只對原圖有意義，看結果時就收起來 */
+.pxpane .px-src-only { display: none; }
+.pxpane:has(.pxview.showsrc) .px-src-only { display: flex; }
 .pxside { width: 320px; flex: none; display: flex; flex-direction: column; gap: var(--sp-4); }
 .pxgroup { display: flex; flex-direction: column; gap: var(--sp-2); }
 .pxinfo { font-size: var(--fs-sm); color: var(--fg-2); line-height: 1.6; }
@@ -923,7 +912,8 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
   .cards { flex-direction: column; width: 100%; }
   .card { width: 100%; flex-direction: row; text-align: left; align-items: center; padding: var(--sp-3); gap: var(--sp-3); }
   .card .sub br { display: none; }
-  .pxpane canvas { max-height: 22vh; }
+  /* 預覽從兩格併成一格，這裡可以放寬（原本上下各 22vh） */
+  .pxpane { --pxview-max: 30vh; }
   #m-text { min-height: 200px; }
   .keygrid { grid-template-columns: 1fr; }
   #cropbar .sub { display: none; }
