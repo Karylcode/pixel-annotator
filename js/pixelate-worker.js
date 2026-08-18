@@ -10,8 +10,11 @@ importScripts(
   'pixelate/detect/selfsim.js',
   'pixelate/detect/arbitrate.js',
   'pixelate/sample/center-median.js',
+  'pixelate/sample/two-stage.js',
+  'pixelate/sample/stats.js',
   'pixelate/quant/oklab-kmeans.js',
   'pixelate/clean/bg.js',
+  'pixelate/clean/morph.js',
   'pixelate/index.js'
 );
 

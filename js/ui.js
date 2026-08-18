@@ -1254,11 +1254,35 @@ PA.ui = (() => {
     });
     const pr = $('px-precise');
     if (pr) pr.checked = !!(p && p.config && p.config.precise);
+    const samp = $('px-sample');
+    if (samp && !samp.options.length) {
+      (PA.pixelate.list('sample') || []).forEach(d => {
+        const o = document.createElement('option');
+        o.value = d.id; o.textContent = d.label;
+        samp.appendChild(o);
+      });
+    }
+    if (samp && p && p.config && p.config.sample) samp.value = p.config.sample;
+    const cleans = (p && p.config && p.config.clean) || [];
+    ['holes', 'specks', 'jaggies', 'alpha'].forEach(id => {
+      const el = $('px-clean-' + id);
+      if (el) el.checked = cleans.indexOf(id) >= 0;
+    });
+    if ($('px-bg')) $('px-bg').checked = cleans.indexOf('bg') >= 0;
   }
   function pxReadDetectors() {
     const ids = ['autocorr', 'runlength', 'selfsim', 'legacy'];
     const on = ids.filter(id => { const el = $('px-det-' + id); return el && el.checked; });
     return on.length ? on : ['legacy'];
+  }
+  function pxReadCleans() {
+    const out = [];
+    if ($('px-bg') && $('px-bg').checked) out.push('bg');
+    ['holes', 'specks', 'jaggies', 'alpha'].forEach(id => {
+      const el = $('px-clean-' + id);
+      if (el && el.checked) out.push(id);
+    });
+    return out;
   }
   function pxBuildConfig(extra) {
     const presetId = $('px-method').value || 'standard';
@@ -1267,6 +1291,8 @@ PA.ui = (() => {
       detectors: ['legacy'], sample: 'center-median', quant: 'oklab-kmeans',
       k: 0, dither: 'none', clean: [], snap: false, precise: false, error: false,
     }, p && p.config, extra || {});
+    if ($('px-sample') && $('px-sample').value) cfg.sample = $('px-sample').value;
+    cfg.clean = pxReadCleans();
     if ($('px-method').value === 'custom') {
       cfg.detectors = pxReadDetectors();
       cfg.precise = !!($('px-precise') && $('px-precise').checked);
@@ -1481,14 +1507,14 @@ PA.ui = (() => {
     const wantErr = pxNeedError;
     pxNeedError = false;
     try {
-      const r = await PA.pixelate.callAsync('run', {
-        rgba: im.rgba, w: im.w, h: im.h,
-        opts: {
-          grid: pxGrid,
-          removeBg: $('px-bg').checked,
-          colours: Math.max(0, +$('px-k').value || 0),
-          error: wantErr,
-        },
+      const cfg = pxBuildConfig({
+        forceGrid: pxGrid,
+        k: Math.max(0, +$('px-k').value || 0),
+        error: wantErr,
+        snap: false,
+      });
+      const r = await PA.pixelate.callAsync('pipeline', {
+        rgba: im.rgba, w: im.w, h: im.h, config: cfg,
       });
       if (id !== pxRunId || !r) return;
       pxResult = r.px;
@@ -1549,7 +1575,9 @@ PA.ui = (() => {
     $('px-errline').textContent = '';
     pxVotes = [];
     pxForceVoteId = null;
-    const cfg = pxBuildConfig({ k: 0, clean: [], error: false, snap: false });
+    const cfg = pxBuildConfig({ k: 0, error: false, snap: false });
+    cfg.k = 0;
+    cfg.clean = [];
     pxRenderVotes((cfg.detectors || []).map(id => ({ id, status: '等待', score: 0 })), null);
 
     const r = await PA.pixelate.callAsync('pipeline', { rgba: im.rgba, w: im.w, h: im.h, config: cfg }, {
@@ -2706,6 +2734,10 @@ PA.ui = (() => {
     $('px-k').oninput = () => { $('px-k-range').value = Math.min(+$('px-k-range').max, Math.max(0, +$('px-k').value || 0)); pxRecomputeSoon(); };
     $('px-k-range').oninput = () => { $('px-k').value = $('px-k-range').value; pxRecomputeSoon(); };
     $('px-bg').oninput = pxRecomputeSoon;
+    $('px-sample').onchange = () => { $('px-method').value === 'custom' || ($('px-method').value = $('px-method').value); pxRecomputeSoon(); };
+    ['px-clean-holes', 'px-clean-specks', 'px-clean-jaggies', 'px-clean-alpha'].forEach(id => {
+      const el = $(id); if (el) el.oninput = pxRecomputeSoon;
+    });
     $('px-snap').oninput = () => { pxNeedError = true; pxRecomputeSoon(); };
     $('px-gridview').oninput = pxDrawSource;
     $('px-compare').oninput = () => pxSetCompare($('px-compare').checked);

@@ -461,6 +461,9 @@
               <label>偏移 Y<input type="number" id="px-phy" step="0.5"></label>
             </div>
             <button id="px-redetect" class="btn secondary sm">重新偵測</button>
+            <label>取樣
+              <select id="px-sample" aria-label="取樣方法"></select>
+            </label>
             <div class="px-dets">
               <span class="sub">偵測器</span>
               <label class="chk sm"><input type="checkbox" id="px-det-autocorr">自相關</label>
@@ -468,6 +471,13 @@
               <label class="chk sm"><input type="checkbox" id="px-det-selfsim">自相似</label>
               <label class="chk sm"><input type="checkbox" id="px-det-legacy">原版</label>
               <label class="chk sm"><input type="checkbox" id="px-precise">精確仲裁（慢）</label>
+            </div>
+            <div class="px-dets">
+              <span class="sub">清理</span>
+              <label class="chk sm"><input type="checkbox" id="px-clean-holes">補洞</label>
+              <label class="chk sm"><input type="checkbox" id="px-clean-specks">去雜點</label>
+              <label class="chk sm"><input type="checkbox" id="px-clean-jaggies">修鋸齒</label>
+              <label class="chk sm"><input type="checkbox" id="px-clean-alpha">Alpha 二值</label>
             </div>
           </details>
         </div>
@@ -582,8 +592,11 @@
 <script src="js/pixelate/detect/selfsim.js"></script>
 <script src="js/pixelate/detect/arbitrate.js"></script>
 <script src="js/pixelate/sample/center-median.js"></script>
+<script src="js/pixelate/sample/two-stage.js"></script>
+<script src="js/pixelate/sample/stats.js"></script>
 <script src="js/pixelate/quant/oklab-kmeans.js"></script>
 <script src="js/pixelate/clean/bg.js"></script>
+<script src="js/pixelate/clean/morph.js"></script>
 <script src="js/pixelate/index.js"></script>
 <script src="js/store.js"></script>
 <script src="js/render.js"></script>

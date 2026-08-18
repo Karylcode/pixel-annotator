@@ -41,8 +41,14 @@ PA.pixelate = PA.pixelate || {};
     {
       id: 'standard',
       label: '標準',
-      desc: 'Pixel Art Fixer 三偵測器共識（自相關、run-length、自相似）+ 兩階段重建（P3 起）。',
-      config: { detectors: ['autocorr', 'runlength', 'selfsim'], precise: false, sample: 'center-median', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg'], snap: false },
+      desc: 'Pixel Art Fixer 三偵測器共識 + 兩階段重建。',
+      config: { detectors: ['autocorr', 'runlength', 'selfsim'], precise: false, sample: 'two-stage', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg', 'specks'], snap: false },
+    },
+    {
+      id: 'unfake',
+      label: 'unfake 風格',
+      desc: 'run-length + 自相關偵測，眾數取色，補洞／去雜點／修鋸齒／alpha。',
+      config: { detectors: ['runlength', 'autocorr'], precise: false, sample: 'dominant', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg', 'holes', 'specks', 'jaggies', 'alpha'], snap: false },
     },
     {
       id: 'legacy',
