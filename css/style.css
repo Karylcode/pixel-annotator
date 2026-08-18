@@ -682,9 +682,11 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
 #pxmodal input[type=number] { height: var(--ctl-h-sm); padding-block: 0; }
 #pxmodal #px-target-w { width: 84px; }
 
-/* 方法列：ⓘ 說明浮在列的下方，不推擠版面（原本會把整欄往下推） */
+/* 方法列：ⓘ 貼在「方法」標籤旁（下拉才有整欄可用，名稱不會被截斷）；
+   說明浮在列的下方，不推擠版面（原本會把整欄往下推） */
 .px-method-row { position: relative; }
-.px-method-row .btn.icon { color: var(--fg-3); }
+.px-method-row > .lbl { display: flex; align-items: center; gap: 2px; }
+.px-method-row .btn.icon { color: var(--fg-3); width: 24px; height: 24px; font-size: var(--fs-md); }
 .px-method-row .btn.icon:hover { color: var(--fg-1); }
 .px-method-pop {
   position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5;

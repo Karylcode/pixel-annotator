@@ -34,7 +34,7 @@ PA.pixelate = PA.pixelate || {};
   PA.pixelate.presets = [
     {
       id: 'pixel-art-fixer',
-      label: 'Pixel Art Fixer',
+      label: 'Pixel Art Fixer · 三偵測器共識',
       desc: '三個獨立偵測器（自相關梳狀／run-length soft-GCD／位移自相似）取共識，'
           + '再用兩階段重建上色（先用量化標籤投票決定每格屬於哪一區，再取該區原始像素的平均）。'
           + '原專案 pixel-bench 宣稱 native 解析度精確還原 77%。',
@@ -42,61 +42,61 @@ PA.pixelate = PA.pixelate || {};
     },
     {
       id: 'pixel-art-fixer-full',
-      label: 'Pixel Art Fixer（全偵測器 + 證據仲裁）',
+      label: 'Pixel Art Fixer · 全偵測器仲裁',
       desc: '上面三個再加 perfectPixel 的 FFT 與 pixel-perfecter，並開啟原專案 Stage 2 的'
           + '變異數對比與 round-trip 重建誤差仲裁。最慢，給難圖用。',
       config: { detectors: ['autocorr', 'runlength', 'selfsim', 'fft', 'perfecter'], precise: true, sample: 'two-stage', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg'], snap: false },
     },
     {
       id: 'perfectPixel',
-      label: 'perfectPixel',
+      label: 'perfectPixel · FFT 主週期偵測',
       desc: 'FFT 抓梯度剖面的主週期得格寬，再用邊緣精修對齊。整數倍放大時最快最準。',
       config: { detectors: ['fft'], precise: false, sample: 'center-median', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg'], snap: false },
     },
     {
       id: 'pixel-perfecter',
-      label: 'pixel-perfecter',
+      label: 'pixel-perfecter · 四路幾何偵測',
       desc: '四路子偵測：精確最近鄰檢查、Canny 投影、自相關、phase-fold 掃描，'
           + '再用統一分數「格間對比 / √格內變異」挑，並用眾數取色。',
       config: { detectors: ['perfecter'], precise: false, sample: 'dominant', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg'], snap: false },
     },
     {
       id: 'proper-pixel-art',
-      label: 'proper-pixel-art',
+      label: 'proper-pixel-art · 霍夫格線偵測',
       desc: '幾何路線（與其他方法的頻域思路完全不同）：Canny 邊緣 → 形態學閉合 →'
           + '軸向霍夫取線 → 分群 → 修剪中位間距。',
       config: { detectors: ['hough'], precise: false, sample: 'dominant', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg'], snap: false },
     },
     {
       id: 'unfake.js',
-      label: 'unfake.js',
+      label: 'unfake.js · Run 長度 + 清理層',
       desc: '同色 run 長度偵測 + 眾數取色，並套用它招牌的清理層：'
           + '補洞、去雜點、修鋸齒、alpha 二值化。',
       config: { detectors: ['runs', 'autocorr'], precise: false, sample: 'dominant', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg', 'holes', 'specks', 'jaggies', 'alpha'], snap: false },
     },
     {
       id: 'spritegrid',
-      label: 'spritegrid',
+      label: 'spritegrid · 幾何中位數取色',
       desc: '格線用 Pixel Art Fixer 的共識，取色改用 Weiszfeld 幾何中位數：'
           + '比逐通道中位數更抗離群，且吸附回格內既有顏色，不會冒出原圖沒有的色。',
       config: { detectors: ['autocorr', 'runlength', 'selfsim'], precise: false, sample: 'geomedian', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg'], snap: false },
     },
     {
       id: 'PixelOE',
-      label: 'PixelOE（照片／插畫轉像素）',
+      label: 'PixelOE · 輪廓感知降採樣',
       desc: '不偵測格線，由你指定目標寬度。降採樣前先做輪廓擴張（依局部亮度分布加權膨脹／侵蝕）'
           + '保住 1px 細線，再做對比感知降採樣（LAB 空間，亮度取局部極值、色度取中位數）。',
       config: { detectors: [], precise: false, sample: 'pixeloe', quant: 'oklab-kmeans', k: 48, dither: 'none', ditherStrength: 0.5, clean: [], snap: false, targetWidth: 64 },
     },
     {
       id: 'Image-to-Pixel',
-      label: 'Image-to-Pixel（指定寬度 + 抖色）',
+      label: 'Image-to-Pixel · 指定寬度 + 抖色',
       desc: '不偵測格線，由你指定目標寬度；減色後套用抖色（預設 Floyd–Steinberg，可換 Bayer／Ordered／Atkinson）。',
       config: { detectors: [], precise: false, sample: 'center-median', quant: 'oklab-kmeans', k: 32, dither: 'fs', ditherStrength: 0.5, clean: [], snap: false, targetWidth: 64 },
     },
     {
       id: 'legacy',
-      label: 'legacy（本工具原版）',
+      label: 'legacy · 本工具原版引擎',
       desc: '本工具原本的差分能量偵測 + 格心中位數取色。保留作為回歸基準，輸出與重寫前逐位相同。',
       config: { detectors: ['legacy'], precise: false, sample: 'center-median', quant: 'oklab-kmeans', k: 48, dither: 'none', ditherStrength: 0.5, clean: ['bg'], snap: false, legacyPhase: true, detectNative: false },
     },

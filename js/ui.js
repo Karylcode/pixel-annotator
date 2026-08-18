@@ -1241,7 +1241,7 @@ PA.ui = (() => {
     for (const p of PA.pixelate.presets || []) {
       const o = document.createElement('option');
       o.value = p.id;
-      o.textContent = p.label + (p.id === PX_DEFAULT ? '（預設）' : '');
+      o.textContent = p.label;          // 「預設」寫在 ⓘ 說明裡，選單文字才放得下
       sel.appendChild(o);
     }
     const saved = pxReadPrefs();
@@ -1351,7 +1351,8 @@ PA.ui = (() => {
     if (cfg.sample) parts.push('取樣 ' + cfg.sample);
     if (cfg.quant) parts.push('減色 ' + cfg.quant);
     if (cfg.dither && cfg.dither !== 'none') parts.push('抖色 ' + cfg.dither);
-    pop.innerHTML = `<b>${p.label}</b><br>${p.desc || ''}<br><span class="sub">${parts.join(' · ')}</span>`;
+    const tag = p.id === PX_DEFAULT ? ' <span class="sub">（預設方法）</span>' : '';
+    pop.innerHTML = `<b>${p.label}</b>${tag}<br>${p.desc || ''}<br><span class="sub">${parts.join(' · ')}</span>`;
     pop.classList.remove('hide');
   }
   function pxRenderVotes(votes, usedId) {
@@ -2889,7 +2890,7 @@ PA.ui = (() => {
       el.onchange = () => {
         if (!$('px-method').querySelector('option[value=custom]')) {
           const o = document.createElement('option');
-          o.value = 'custom'; o.textContent = '自訂…';
+          o.value = 'custom'; o.textContent = '自訂 · 手動組合偵測器';
           $('px-method').appendChild(o);
         }
         $('px-method').value = 'custom';
