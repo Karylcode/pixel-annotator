@@ -1248,7 +1248,7 @@ PA.ui = (() => {
   function pxSyncDetChecks() {
     const p = (PA.pixelate.presets || []).find(x => x.id === $('px-method').value);
     const dets = (p && p.config && p.config.detectors) || [];
-    ['autocorr', 'runlength', 'selfsim', 'legacy'].forEach(id => {
+    ['autocorr', 'runlength', 'selfsim', 'fft', 'perfecter', 'runs', 'legacy'].forEach(id => {
       const el = $('px-det-' + id);
       if (el) el.checked = dets.indexOf(id) >= 0;
     });
@@ -1271,7 +1271,7 @@ PA.ui = (() => {
     if ($('px-bg')) $('px-bg').checked = cleans.indexOf('bg') >= 0;
   }
   function pxReadDetectors() {
-    const ids = ['autocorr', 'runlength', 'selfsim', 'legacy'];
+    const ids = ['autocorr', 'runlength', 'selfsim', 'fft', 'perfecter', 'runs', 'legacy'];
     const on = ids.filter(id => { const el = $('px-det-' + id); return el && el.checked; });
     return on.length ? on : ['legacy'];
   }
@@ -2715,7 +2715,7 @@ PA.ui = (() => {
     $('px-method-info').onmouseenter = () => pxShowMethodInfo(true);
     $('px-method-info').onmouseleave = () => pxShowMethodInfo(false);
     $('px-method-info').onclick = e => { e.preventDefault(); pxShowMethodInfo($('px-method-pop').classList.contains('hide')); };
-    ['px-det-autocorr', 'px-det-runlength', 'px-det-selfsim', 'px-det-legacy', 'px-precise'].forEach(id => {
+    ['px-det-autocorr', 'px-det-runlength', 'px-det-selfsim', 'px-det-fft', 'px-det-perfecter', 'px-det-runs', 'px-det-legacy', 'px-precise'].forEach(id => {
       const el = $(id);
       if (!el) return;
       el.onchange = () => {

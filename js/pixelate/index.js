@@ -48,7 +48,19 @@ PA.pixelate = PA.pixelate || {};
       id: 'unfake',
       label: 'unfake 風格',
       desc: 'run-length + 自相關偵測，眾數取色，補洞／去雜點／修鋸齒／alpha。',
-      config: { detectors: ['runlength', 'autocorr'], precise: false, sample: 'dominant', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg', 'holes', 'specks', 'jaggies', 'alpha'], snap: false },
+      config: { detectors: ['runs', 'autocorr'], precise: false, sample: 'dominant', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg', 'holes', 'specks', 'jaggies', 'alpha'], snap: false },
+    },
+    {
+      id: 'perfectpixel',
+      label: 'perfectPixel 風格',
+      desc: 'FFT 偵測主週期，格心中位數取色。',
+      config: { detectors: ['fft'], precise: false, sample: 'center-median', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg'], snap: false },
+    },
+    {
+      id: 'perfecter',
+      label: 'pixel-perfecter 風格',
+      desc: 'exact-NN / Canny 投影 / 對比評分，眾數取色。',
+      config: { detectors: ['perfecter'], precise: false, sample: 'dominant', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg'], snap: false },
     },
     {
       id: 'legacy',
