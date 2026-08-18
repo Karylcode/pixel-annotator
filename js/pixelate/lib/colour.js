@@ -48,9 +48,31 @@ PA.pixelate.lib.colour = (() => {
     return Math.sqrt(dL * dL + dA * dA + dB * dB);
   }
 
-  return { toOklab, toCielab, deltaE76 };
+  function fromCielab(L, a, b) {
+    const fy = (L + 16) / 116;
+    const fx = a / 500 + fy;
+    const fz = fy - b / 200;
+    const fInv = t => {
+      const t3 = t * t * t;
+      return t3 > 0.008856 ? t3 : (t - 16 / 116) / 7.787;
+    };
+    const x = 0.95047 * fInv(fx);
+    const y = fInv(fy);
+    const z = 1.08883 * fInv(fz);
+    let R = 3.2404542 * x - 1.5371385 * y - 0.4985314 * z;
+    let G = -0.9692660 * x + 1.8757279 * y + 0.0415560 * z;
+    let B = 0.0556434 * x - 0.2040259 * y + 1.0572252 * z;
+    const lin = v => {
+      v = Math.max(0, Math.min(1, v));
+      return v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055;
+    };
+    return [lin(R) * 255, lin(G) * 255, lin(B) * 255];
+  }
+
+  return { toOklab, toCielab, fromCielab, deltaE76 };
 })();
 
 PA.pixelate.toOklab = PA.pixelate.lib.colour.toOklab;
 PA.pixelate.toCielab = PA.pixelate.lib.colour.toCielab;
+PA.pixelate.fromCielab = PA.pixelate.lib.colour.fromCielab;
 PA.pixelate.deltaE76 = PA.pixelate.lib.colour.deltaE76;

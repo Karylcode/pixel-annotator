@@ -45,6 +45,12 @@ PA.pixelate = PA.pixelate || {};
       config: { detectors: ['autocorr', 'runlength', 'selfsim'], precise: false, sample: 'two-stage', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg', 'specks'], snap: false },
     },
     {
+      id: 'precise',
+      label: '精確（慢）',
+      desc: '五偵測器 + 變異數對比／重建誤差仲裁。適合難圖。',
+      config: { detectors: ['autocorr', 'runlength', 'selfsim', 'fft', 'perfecter'], precise: true, sample: 'two-stage', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg', 'specks', 'jaggies'], snap: false },
+    },
+    {
       id: 'unfake',
       label: 'unfake 風格',
       desc: 'run-length + 自相關偵測，眾數取色，補洞／去雜點／修鋸齒／alpha。',
@@ -61,6 +67,12 @@ PA.pixelate = PA.pixelate || {};
       label: 'pixel-perfecter 風格',
       desc: 'exact-NN / Canny 投影 / 對比評分，眾數取色。',
       config: { detectors: ['perfecter'], precise: false, sample: 'dominant', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg'], snap: false },
+    },
+    {
+      id: 'photo',
+      label: '照片轉像素',
+      desc: '不偵測格線。PixelOE 輪廓擴張 + 對比感知降採樣，目標寬度由使用者指定。',
+      config: { detectors: [], precise: false, sample: 'pixeloe', quant: 'oklab-kmeans', k: 48, dither: 'none', ditherStrength: 0.5, clean: [], snap: false, targetWidth: 64 },
     },
     {
       id: 'legacy',
@@ -155,6 +167,11 @@ PA.pixelate = PA.pixelate || {};
     }
 
     if (cancelled()) return null;
+    if (!grid && (config.targetWidth > 0 || config.sample === 'pixeloe')) {
+      const nx = Math.max(2, Math.min(512, (config.targetWidth | 0) || 64));
+      const ny = Math.max(2, Math.min(512, Math.round(h * nx / w) || 2));
+      grid = { sx: w / nx, sy: h / ny, phx: 0, phy: 0, nx, ny, scoreX: 1, scoreY: 1, source: 'photo', votes };
+    }
     if (!grid) {
       onProgress(1);
       timings.total = performance.now() - tAll;
@@ -187,6 +204,8 @@ PA.pixelate = PA.pixelate || {};
     onProgress(0.85, { stage: 'quant' });
     const k = config.k == null ? 0 : config.k;
     let colours;
+    const wantDither = config.dither && config.dither !== 'none';
+    const preQuant = wantDither ? px.rgba.slice() : null;
     if (config.quant && config.quant !== 'none' && k > 0) {
       const qdef = get('quant', config.quant);
       if (!qdef) throw new Error('找不到減色器：' + config.quant);
@@ -200,7 +219,7 @@ PA.pixelate = PA.pixelate || {};
     if (cancelled()) return null;
 
     onProgress(0.95, { stage: 'dither' });
-    if (config.dither && config.dither !== 'none') {
+    if (wantDither) {
       const ddef = get('dither', config.dither) || get('dither', 'adapter');
       if (!ddef) throw new Error('找不到抖色器：' + config.dither);
       const pal = [];
@@ -212,9 +231,11 @@ PA.pixelate = PA.pixelate || {};
         seen.add(key);
         pal.push(new Uint8ClampedArray([px.rgba[p], px.rgba[p + 1], px.rgba[p + 2], 255]));
       }
+      if (preQuant) px.rgba.set(preQuant);
       const tD = performance.now();
       px = ddef.run(px, pal, config.dither, config.ditherStrength == null ? 0.5 : config.ditherStrength);
       timings.dither = performance.now() - tD;
+      colours = PA.pixelate.countColours(px.rgba).size;
     }
     await tick();
     if (cancelled()) return null;

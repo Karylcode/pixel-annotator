@@ -431,8 +431,11 @@
             <button type="button" class="btn icon" id="px-method-info" aria-label="方法說明" title="方法說明">ⓘ</button>
           </div>
           <div id="px-method-pop" class="px-method-pop hide" role="tooltip"></div>
-          <div id="px-auto" class="pxinfo">—</div>
-          <div class="px-votes-wrap">
+          <div id="px-auto" class="pxinfo px-grid-only">—</div>
+          <label class="px-photo-only" id="px-target-row">目標寬度（格）
+            <input type="number" id="px-target-w" min="8" max="512" step="1" value="64" aria-label="照片路線目標寬度">
+          </label>
+          <div class="px-votes-wrap px-grid-only">
             <table id="px-votes">
               <thead>
                 <tr>
@@ -448,8 +451,8 @@
             </table>
           </div>
           <div id="px-errline" class="pxinfo"></div>
-          <label class="chk"><input type="checkbox" id="px-snap" checked>自動吸附格線（建議）</label>
-          <div class="sub" id="px-spread"></div>
+          <label class="chk px-grid-only"><input type="checkbox" id="px-snap" checked>自動吸附格線（建議）</label>
+          <div class="sub px-grid-only" id="px-spread"></div>
           <details id="px-adv">
             <summary>進階：格數 / 格寬 / 格線偏移</summary>
             <div class="advgrid">
@@ -491,6 +494,27 @@
             <input type="number" id="px-k" min="0" max="256" value="48" aria-label="顏色上限（0 = 不減色）">
           </div>
           <div class="sub" id="px-k-note">顏色上限（0 = 不減色）</div>
+          <label>減色
+            <select id="px-quant" aria-label="減色方法">
+              <option value="oklab-kmeans">OKLab k-means</option>
+              <option value="median-cut">中位切割</option>
+              <option value="none">不減色</option>
+            </select>
+          </label>
+          <label>抖色
+            <select id="px-dither" aria-label="抖色方法">
+              <option value="none">無</option>
+              <option value="fs">Floyd–Steinberg</option>
+              <option value="bayer2">Bayer 2×2</option>
+              <option value="bayer4">Bayer 4×4</option>
+              <option value="ordered">Ordered 8×8</option>
+              <option value="clustered4">Clustered 4×4</option>
+              <option value="atkinson">Atkinson</option>
+            </select>
+          </label>
+          <label>抖色強度
+            <input type="range" id="px-dither-strength" min="0" max="100" value="50" aria-label="抖色強度">
+          </label>
           <label class="chk"><input type="checkbox" id="px-bg" checked>移除假透明棋盤格</label>
           <div class="sub" id="px-bginfo"></div>
         </div>
@@ -602,7 +626,12 @@
 <script src="js/pixelate/sample/center-median.js"></script>
 <script src="js/pixelate/sample/two-stage.js"></script>
 <script src="js/pixelate/sample/stats.js"></script>
+<script src="js/pixelate/sample/geomedian.js"></script>
+<script src="js/pixelate/sample/pixeloe.js"></script>
 <script src="js/pixelate/quant/oklab-kmeans.js"></script>
+<script src="js/pixelate/quant/median-cut.js"></script>
+<script src="js/vendor/image-to-pixel.js"></script>
+<script src="js/pixelate/dither/adapter.js"></script>
 <script src="js/pixelate/clean/bg.js"></script>
 <script src="js/pixelate/clean/morph.js"></script>
 <script src="js/pixelate/index.js"></script>

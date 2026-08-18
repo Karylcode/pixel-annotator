@@ -1269,6 +1269,19 @@ PA.ui = (() => {
       if (el) el.checked = cleans.indexOf(id) >= 0;
     });
     if ($('px-bg')) $('px-bg').checked = cleans.indexOf('bg') >= 0;
+    const q = $('px-quant');
+    if (q && p && p.config && p.config.quant) q.value = p.config.quant;
+    const dith = $('px-dither');
+    if (dith && p && p.config) dith.value = p.config.dither || 'none';
+    const ds = $('px-dither-strength');
+    if (ds) {
+      const s = p && p.config && p.config.ditherStrength != null ? p.config.ditherStrength : 0.5;
+      ds.value = Math.round((s > 1 ? s : s * 100));
+      ds.disabled = !dith || dith.value === 'none';
+    }
+    const tw = $('px-target-w');
+    if (tw && p && p.config && p.config.targetWidth) tw.value = p.config.targetWidth;
+    pxModal().classList.toggle('px-photo-mode', $('px-method').value === 'photo');
   }
   function pxReadDetectors() {
     const ids = ['autocorr', 'runlength', 'selfsim', 'fft', 'perfecter', 'runs', 'legacy'];
@@ -1293,10 +1306,17 @@ PA.ui = (() => {
     }, p && p.config, extra || {});
     if ($('px-sample') && $('px-sample').value) cfg.sample = $('px-sample').value;
     cfg.clean = pxReadCleans();
+    if ($('px-quant') && $('px-quant').value) cfg.quant = $('px-quant').value;
+    if ($('px-dither') && $('px-dither').value) cfg.dither = $('px-dither').value;
+    if ($('px-dither-strength')) {
+      cfg.ditherStrength = Math.max(0, Math.min(1, (+$('px-dither-strength').value || 0) / 100));
+    }
+    if ($('px-target-w')) cfg.targetWidth = Math.max(2, Math.min(512, +$('px-target-w').value || 64));
     if ($('px-method').value === 'custom') {
       cfg.detectors = pxReadDetectors();
       cfg.precise = !!($('px-precise') && $('px-precise').checked);
     }
+    if ($('px-precise') && $('px-method').value === 'precise') cfg.precise = $('px-precise').checked;
     return cfg;
   }
   function pxShowMethodInfo(on) {
@@ -1578,6 +1598,28 @@ PA.ui = (() => {
     const cfg = pxBuildConfig({ k: 0, error: false, snap: false });
     cfg.k = 0;
     cfg.clean = [];
+
+    if ((!cfg.detectors || !cfg.detectors.length) && cfg.targetWidth) {
+      const nx = Math.max(2, Math.min(512, cfg.targetWidth | 0));
+      const ny = Math.max(2, Math.min(512, Math.round(im.h * nx / im.w) || 2));
+      pxGrid = { sx: im.w / nx, sy: im.h / ny, phx: 0, phy: 0, nx, ny, scoreX: 1, scoreY: 1, source: 'photo' };
+      $('px-auto').innerHTML = `照片路線：<b>${nx}×${ny}</b>`;
+      $('px-gridview').checked = false;
+      pxFill(pxGrid);
+      pxRenderVotes([], null);
+      const srcColours = PA.pixelate.countColours(im.rgba).size;
+      const cap = Math.min(256, srcColours);
+      $('px-k').max = cap;
+      $('px-k-range').max = cap;
+      $('px-k').value = Math.min(PX_K_DEFAULT, srcColours);
+      $('px-k-range').value = Math.min(PX_K_DEFAULT, srcColours);
+      $('px-k-note').textContent = `顏色上限（0 = 不減色）· 原圖共 ${srcColours.toLocaleString()} 色`;
+      $('px-snap').checked = false;
+      pxSetBusy(false);
+      pxNeedError = true;
+      pxRecompute();
+      return;
+    }
     pxRenderVotes((cfg.detectors || []).map(id => ({ id, status: '等待', score: 0 })), null);
 
     const r = await PA.pixelate.callAsync('pipeline', { rgba: im.rgba, w: im.w, h: im.h, config: cfg }, {
@@ -1630,7 +1672,8 @@ PA.ui = (() => {
 
     // 吸附在大圖（格子夠大、抖動明顯）幫助很大，在小圖反而會讓格線跑到內部細節上。
     // 兩種算出來的格數相同，重建誤差可以直接比較，所以用實測結果決定預設值。
-    if (!isNative) {
+    const isPhoto = g && g.source === 'photo';
+    if (!isNative && !isPhoto) {
       const prof = pxEnsureProfiles();
       const errOf = snap => {
         const b = PA.pixelate.buildBounds(pxGrid, prof, snap);
@@ -2712,6 +2755,13 @@ PA.ui = (() => {
     $('px-redetect').onclick = pxDetect;
     pxFillMethods();
     $('px-method').onchange = () => { pxSyncDetChecks(); pxSavePrefs(); pxDetect(); };
+    if ($('px-quant')) $('px-quant').onchange = () => pxRecomputeSoon();
+    if ($('px-dither')) $('px-dither').onchange = () => {
+      if ($('px-dither-strength')) $('px-dither-strength').disabled = $('px-dither').value === 'none';
+      pxRecomputeSoon();
+    };
+    if ($('px-dither-strength')) $('px-dither-strength').oninput = pxRecomputeSoon;
+    if ($('px-target-w')) $('px-target-w').onchange = () => pxDetect();
     $('px-method-info').onmouseenter = () => pxShowMethodInfo(true);
     $('px-method-info').onmouseleave = () => pxShowMethodInfo(false);
     $('px-method-info').onclick = e => { e.preventDefault(); pxShowMethodInfo($('px-method-pop').classList.contains('hide')); };

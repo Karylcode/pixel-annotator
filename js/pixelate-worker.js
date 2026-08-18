@@ -17,7 +17,11 @@ importScripts(
   'pixelate/sample/center-median.js',
   'pixelate/sample/two-stage.js',
   'pixelate/sample/stats.js',
+  'pixelate/sample/geomedian.js',
+  'pixelate/sample/pixeloe.js',
   'pixelate/quant/oklab-kmeans.js',
+  'pixelate/quant/median-cut.js',
+  'pixelate/dither/adapter.js',
   'pixelate/clean/bg.js',
   'pixelate/clean/morph.js',
   'pixelate/index.js'
