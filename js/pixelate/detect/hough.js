@@ -101,7 +101,7 @@ PA.pixelate = PA.pixelate || {};
 
   PA.pixelate.register('detect', {
     id: 'hough',
-    label: 'Canny + 軸向霍夫（proper-pixel-art）',
+    label: '霍夫',
     credit: {
       project: 'proper-pixel-art',
       file: 'proper_pixel_art/（Canny → 閉合 → 霍夫 → 分群 → 修剪中位間距）',

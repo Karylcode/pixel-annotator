@@ -21,6 +21,8 @@
   <symbol id="i-crop" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.2 1.8v12h12"/><path d="M1.8 6.2h12v12"/></symbol>
   <symbol id="i-view-img" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3.5" width="15" height="13" rx="1.5"/><circle cx="7" cy="8" r="1.6"/><path d="M3 14.5l4-3.5 3 2.5 4-4 3 3.5"/></symbol>
   <symbol id="i-view-parts" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.8l7 3.9v7.8l-7 3.9-7-3.9V6.7z"/><path d="M10 10.4V18M3 6.7l7 3.7 7-3.7"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="8.5" width="11" height="8" rx="1.5"/><path d="M7.2 8.5V6.4a2.8 2.8 0 015.6 0v2.1"/><path d="M10 11.7v1.9"/></symbol>
+  <symbol id="i-unlock" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="8.5" width="11" height="8" rx="1.5"/><path d="M7.2 8.5V6.4a2.8 2.8 0 015.6 0"/><path d="M10 11.7v1.9"/></symbol>
   <symbol id="i-view-grid" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.8" y="2.8" width="14.4" height="14.4" rx="1"/><path d="M7.6 2.8v14.4M12.4 2.8v14.4M2.8 7.6h14.4M2.8 12.4h14.4"/></symbol>
 </svg>
 
@@ -421,19 +423,34 @@
         <input type="range" id="px-split" class="hide" min="0" max="100" value="50" aria-label="比對分割位置（左：原圖，右：結果）" title="左：原圖 · 右：結果">
       </div>
       <div class="pxside">
-        <div class="pxgroup">
-          <div class="grouplabel">② 格線</div>
-          <div class="px-method-row">
-            <label>方法
+
+        <!-- ② 格線：方法 → 偵測狀態 → 各偵測器的投票 → 手動微調 -->
+        <section class="pxcard">
+          <div class="pxcard-h"><span class="stepnum">② 格線</span></div>
+
+          <div class="pxrow px-method-row">
+            <span class="lbl">方法</span>
+            <div class="ctl">
               <select id="px-method" aria-label="像素化方法"></select>
-            </label>
-            <button type="button" class="btn icon" id="px-method-info" aria-label="方法說明" title="方法說明">ⓘ</button>
+              <button type="button" class="btn icon" id="px-method-info" aria-label="方法說明" title="方法說明">ⓘ</button>
+            </div>
+            <div id="px-method-pop" class="px-method-pop hide" role="tooltip"></div>
           </div>
-          <div id="px-method-pop" class="px-method-pop hide" role="tooltip"></div>
-          <div id="px-auto" class="pxinfo px-grid-only">—</div>
-          <label class="px-photo-only" id="px-target-row">目標寬度（格）
-            <input type="number" id="px-target-w" min="8" max="512" step="1" value="64" aria-label="照片路線目標寬度">
-          </label>
+
+          <div class="pxrow px-photo-only" id="px-target-row">
+            <span class="lbl">目標寬度</span>
+            <div class="ctl">
+              <input type="number" id="px-target-w" min="8" max="512" step="1" value="64" aria-label="照片路線目標寬度（格）">
+              <span class="unit">格</span>
+            </div>
+          </div>
+
+          <!-- 偵測結果：一句話 + 重建誤差 -->
+          <div class="pxstatus">
+            <div id="px-auto" class="pxinfo">—</div>
+            <div id="px-errline" class="pxinfo"></div>
+          </div>
+
           <div class="px-votes-wrap px-grid-only">
             <table id="px-votes">
               <thead>
@@ -442,82 +459,142 @@
                   <th>格數</th>
                   <th>格寬</th>
                   <th>信心</th>
-                  <th>耗時</th>
                   <th>狀態</th>
                 </tr>
               </thead>
               <tbody></tbody>
             </table>
           </div>
-          <div id="px-errline" class="pxinfo"></div>
-          <label class="chk px-grid-only"><input type="checkbox" id="px-snap">自動吸附格線（本工具原版功能）</label>
-          <div class="sub px-grid-only" id="px-spread"></div>
-          <details id="px-adv">
-            <summary>進階：格數 / 格寬 / 格線偏移</summary>
-            <div class="advgrid">
-              <label>格數寬<input type="number" id="px-w" min="2" max="512" step="1"></label>
-              <label>格數高<input type="number" id="px-h" min="2" max="512" step="1"></label>
-              <label>格寬 X<input type="number" id="px-sx" min="1" step="0.01"></label>
-              <label>格寬 Y<input type="number" id="px-sy" min="1" step="0.01"></label>
-              <label>偏移 X<input type="number" id="px-phx" step="0.5"></label>
-              <label>偏移 Y<input type="number" id="px-phy" step="0.5"></label>
-            </div>
-            <button id="px-redetect" class="btn secondary sm">重新偵測</button>
-            <label>取樣
-              <select id="px-sample" aria-label="取樣方法"></select>
-            </label>
-            <div class="px-dets">
-              <span class="sub">偵測器</span>
-              <label class="chk sm" title="Pixel Art Fixer：自相關梳狀 − 反梳狀 + 次諧波抑制"><input type="checkbox" id="px-det-autocorr">自相關（Fixer）</label>
-              <label class="chk sm" title="Pixel Art Fixer：邊界距離 soft-GCD"><input type="checkbox" id="px-det-runlength">Run-length（Fixer）</label>
-              <label class="chk sm" title="Pixel Art Fixer：位移自相似 + 多諧波 t 統計"><input type="checkbox" id="px-det-selfsim">自相似（Fixer）</label>
-              <label class="chk sm" title="perfectPixel：FFT 主週期"><input type="checkbox" id="px-det-fft">FFT（perfectPixel）</label>
-              <label class="chk sm" title="pixel-perfecter：exact-NN + Canny 投影 + phase-fold + 對比評分"><input type="checkbox" id="px-det-perfecter">pixel-perfecter</label>
-              <label class="chk sm" title="proper-pixel-art：Canny → 閉合 → 軸向霍夫 → 修剪中位間距"><input type="checkbox" id="px-det-hough">霍夫（proper-pixel-art）</label>
-              <label class="chk sm" title="unfake.js：同色 run 長度"><input type="checkbox" id="px-det-runs">Runs（unfake.js）</label>
-              <label class="chk sm" title="本工具原版差分能量偵測"><input type="checkbox" id="px-det-legacy">legacy</label>
-              <label class="chk sm"><input type="checkbox" id="px-precise">精確仲裁（慢）</label>
-            </div>
-            <div class="px-dets">
-              <span class="sub">清理</span>
-              <label class="chk sm"><input type="checkbox" id="px-clean-holes">補洞</label>
-              <label class="chk sm"><input type="checkbox" id="px-clean-specks">去雜點</label>
-              <label class="chk sm"><input type="checkbox" id="px-clean-jaggies">修鋸齒</label>
-              <label class="chk sm"><input type="checkbox" id="px-clean-alpha">Alpha 二值</label>
+
+          <details id="px-adv" class="pxdetails">
+            <summary>手動調整格數／格寬／偏移</summary>
+            <div class="pxdetails-body">
+              <div class="pxrow">
+                <span class="lbl">格數</span>
+                <div class="ctl pair">
+                  <input type="number" id="px-w" min="2" max="512" step="1" aria-label="格數寬">
+                  <span class="x">×</span>
+                  <input type="number" id="px-h" min="2" max="512" step="1" aria-label="格數高">
+                  <button type="button" id="px-lock" class="btn icon lockbtn" aria-pressed="false" title="鎖定原圖長寬比：改一邊，另一邊自動跟著算（格子會是正方形）" aria-label="鎖定原圖長寬比">
+                    <svg class="ico" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><use href="#i-unlock"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="pxrow">
+                <span class="lbl">格寬</span>
+                <div class="ctl pair">
+                  <input type="number" id="px-sx" min="1" step="0.01" aria-label="格寬 X">
+                  <span class="x">×</span>
+                  <input type="number" id="px-sy" min="1" step="0.01" aria-label="格寬 Y">
+                  <span class="unit">px</span>
+                </div>
+              </div>
+              <div class="pxrow">
+                <span class="lbl">偏移</span>
+                <div class="ctl pair">
+                  <input type="number" id="px-phx" step="0.5" aria-label="格線偏移 X">
+                  <span class="x">,</span>
+                  <input type="number" id="px-phy" step="0.5" aria-label="格線偏移 Y">
+                  <span class="unit">px</span>
+                </div>
+              </div>
+              <div class="pxrow px-grid-only">
+                <span class="lbl"></span>
+                <div class="ctl">
+                  <label class="chk sm"><input type="checkbox" id="px-snap">自動吸附格線<span class="sub">（原版功能）</span></label>
+                </div>
+              </div>
+              <div class="sub px-grid-only" id="px-spread"></div>
+              <div class="pxrow">
+                <span class="lbl"></span>
+                <div class="ctl"><button id="px-redetect" class="btn secondary sm">重新偵測</button></div>
+              </div>
             </div>
           </details>
-        </div>
-        <div class="pxgroup">
-          <div class="grouplabel">③ 顏色與背景</div>
-          <div class="krow">
-            <input type="range" id="px-k-range" min="0" max="64" value="48" aria-label="顏色上限">
-            <input type="number" id="px-k" min="0" max="256" value="48" aria-label="顏色上限（0 = 不減色）">
+        </section>
+
+        <!-- ③ 顏色 -->
+        <section class="pxcard">
+          <div class="pxcard-h"><span class="stepnum">③ 顏色</span></div>
+
+          <div class="pxrow">
+            <span class="lbl">顏色上限</span>
+            <div class="ctl krow">
+              <input type="range" id="px-k-range" min="0" max="64" value="48" aria-label="顏色上限">
+              <input type="number" id="px-k" min="0" max="256" value="48" aria-label="顏色上限（0 = 不減色）">
+            </div>
           </div>
-          <div class="sub" id="px-k-note">顏色上限（0 = 不減色）</div>
-          <label>減色
-            <select id="px-quant" aria-label="減色方法">
-              <option value="oklab-kmeans">OKLab k-means</option>
-              <option value="median-cut">中位切割</option>
-              <option value="none">不減色</option>
-            </select>
-          </label>
-          <label>抖色
-            <select id="px-dither" aria-label="抖色方法">
-              <option value="none">無</option>
-              <option value="fs">Floyd–Steinberg</option>
-              <option value="bayer2">Bayer 2×2</option>
-              <option value="bayer4">Bayer 4×4</option>
-              <option value="ordered">Ordered 8×8</option>
-              <option value="clustered4">Clustered 4×4</option>
-              <option value="atkinson">Atkinson</option>
-            </select>
-          </label>
-          <label>抖色強度
-            <input type="range" id="px-dither-strength" min="0" max="100" value="50" aria-label="抖色強度">
-          </label>
-          <label class="chk"><input type="checkbox" id="px-bg" checked>移除假透明棋盤格</label>
-          <div class="sub" id="px-bginfo"></div>
-        </div>
+          <div class="pxnote sub" id="px-k-note">0 = 不減色</div>
+
+          <div class="pxrow">
+            <span class="lbl">減色</span>
+            <div class="ctl">
+              <select id="px-quant" aria-label="減色方法">
+                <option value="oklab-kmeans">OKLab k-means</option>
+                <option value="median-cut">中位切割</option>
+                <option value="none">不減色</option>
+              </select>
+            </div>
+          </div>
+          <div class="pxrow">
+            <span class="lbl">抖色</span>
+            <div class="ctl">
+              <select id="px-dither" aria-label="抖色方法">
+                <option value="none">無</option>
+                <option value="fs">Floyd–Steinberg</option>
+                <option value="bayer2">Bayer 2×2</option>
+                <option value="bayer4">Bayer 4×4</option>
+                <option value="ordered">Ordered 8×8</option>
+                <option value="clustered4">Clustered 4×4</option>
+                <option value="atkinson">Atkinson</option>
+              </select>
+            </div>
+          </div>
+          <div class="pxrow">
+            <span class="lbl">抖色強度</span>
+            <div class="ctl">
+              <input type="range" id="px-dither-strength" min="0" max="100" value="50" aria-label="抖色強度">
+            </div>
+          </div>
+        </section>
+
+        <!-- ④ 清理 -->
+        <section class="pxcard">
+          <div class="pxcard-h"><span class="stepnum">④ 清理</span></div>
+          <label class="chk"><input type="checkbox" id="px-bg" checked>移除背景<span class="sub" id="px-bginfo"></span></label>
+          <div class="pxtogs" role="group" aria-label="清理">
+            <label class="tog" title="把被雜訊打穿的單格小洞補回鄰近顏色"><input type="checkbox" id="px-clean-holes">補洞</label>
+            <label class="tog" title="移除孤立的單格雜點"><input type="checkbox" id="px-clean-specks">去雜點</label>
+            <label class="tog" title="把斜線上的鋸齒平滑掉"><input type="checkbox" id="px-clean-jaggies">修鋸齒</label>
+            <label class="tog" title="半透明一律變成全透明或全不透明"><input type="checkbox" id="px-clean-alpha">Alpha 二值</label>
+          </div>
+        </section>
+
+        <!-- 進階：改了任何一項，方法就會變成「自訂」 -->
+        <details class="pxdetails pxdetails-plain">
+          <summary>進階：取樣與偵測器</summary>
+          <div class="pxdetails-body">
+            <div class="pxrow">
+              <span class="lbl">取樣</span>
+              <div class="ctl"><select id="px-sample" aria-label="取樣方法"></select></div>
+            </div>
+            <div class="px-grid-only">
+              <div class="pxsub">偵測器 <span class="sub">— 勾選後方法會變成「自訂」</span></div>
+              <div class="pxtogs" role="group" aria-label="偵測器">
+                <label class="tog" title="Pixel Art Fixer：自相關梳狀 − 反梳狀 + 次諧波抑制"><input type="checkbox" id="px-det-autocorr">自相關</label>
+                <label class="tog" title="Pixel Art Fixer：邊界距離 soft-GCD"><input type="checkbox" id="px-det-runlength">Run-length</label>
+                <label class="tog" title="Pixel Art Fixer：位移自相似 + 多諧波 t 統計"><input type="checkbox" id="px-det-selfsim">自相似</label>
+                <label class="tog" title="perfectPixel：FFT 主週期"><input type="checkbox" id="px-det-fft">FFT</label>
+                <label class="tog" title="pixel-perfecter：exact-NN + Canny 投影 + phase-fold + 對比評分"><input type="checkbox" id="px-det-perfecter">pixel-perfecter</label>
+                <label class="tog" title="proper-pixel-art：Canny → 閉合 → 軸向霍夫 → 修剪中位間距"><input type="checkbox" id="px-det-hough">霍夫</label>
+                <label class="tog" title="unfake.js：同色 run 長度"><input type="checkbox" id="px-det-runs">Runs</label>
+                <label class="tog" title="本工具原版差分能量偵測"><input type="checkbox" id="px-det-legacy">legacy</label>
+              </div>
+              <label class="chk sm" style="margin-top:var(--sp-2)"><input type="checkbox" id="px-precise">精確仲裁<span class="sub">（多跑變異數對比與重建誤差，較慢）</span></label>
+            </div>
+          </div>
+        </details>
+
       </div>
     </div>
 

@@ -1210,6 +1210,7 @@ PA.ui = (() => {
   /* ═══════════ 像素化視窗（三步驟） ═══════════ */
 
   let pxGrid = null, pxResult = null;
+  let pxLockRatio = false;   // 格數是否鎖住原圖長寬比
   let pxProfiles = null, pxProfileIm = null, pxProfileRev = -1;   // 邊緣能量只跟點陣圖有關，依 (圖, 版本) 快取
   let pxAbort = false, pxBusy = false;
   const PX_K_DEFAULT = 48;   // 像素化的預設顏色上限（0 = 不減色）
@@ -1226,7 +1227,10 @@ PA.ui = (() => {
   }
   function pxSavePrefs() {
     try {
-      localStorage.setItem(PX_PREFS_KEY, JSON.stringify({ preset: $('px-method').value || 'legacy' }));
+      localStorage.setItem(PX_PREFS_KEY, JSON.stringify({
+        preset: $('px-method').value || 'legacy',
+        lockRatio: pxLockRatio,
+      }));
     } catch {}
   }
   function pxFillMethods() {
@@ -1340,7 +1344,14 @@ PA.ui = (() => {
     const p = (PA.pixelate.presets || []).find(x => x.id === $('px-method').value);
     if (!p) { pop.classList.add('hide'); return; }
     const cfg = p.config || {};
-    pop.innerHTML = `<b>${p.label}</b><br>${p.desc || ''}<br><span class="sub">偵測 ${ (cfg.detectors || []).join('、') || '—'} · 取樣 ${cfg.sample || '—'} · 減色 ${cfg.quant || '—'}</span>`;
+    // 照片路線沒有偵測器，就不要印「偵測 —」
+    const parts = [];
+    if (cfg.detectors && cfg.detectors.length) parts.push('偵測 ' + cfg.detectors.join('、'));
+    else if (cfg.targetWidth > 0) parts.push('不偵測格線，指定目標寬度');
+    if (cfg.sample) parts.push('取樣 ' + cfg.sample);
+    if (cfg.quant) parts.push('減色 ' + cfg.quant);
+    if (cfg.dither && cfg.dither !== 'none') parts.push('抖色 ' + cfg.dither);
+    pop.innerHTML = `<b>${p.label}</b><br>${p.desc || ''}<br><span class="sub">${parts.join(' · ')}</span>`;
     pop.classList.remove('hide');
   }
   function pxRenderVotes(votes, usedId) {
@@ -1359,12 +1370,20 @@ PA.ui = (() => {
       const warn = !isCons && consNx != null && nx !== '—' && Math.abs(nx - consNx) > 1;
       const using = (usedId && v.id === usedId) || (isCons && !usedId);
       if (using) tr.classList.add('px-vote-on');
+      // 耗時不佔欄位，放到整列的提示裡；「使用中」用標籤標出來，其他狀態灰字
+      const tip = [
+        isCons ? '共識／仲裁的結果' : `點一下改用「${v.label || v.id}」算出的格線`,
+        `信心 ${score.toFixed(2)}`,
+        ms === '' ? null : `耗時 ${ms} ms`,
+        warn ? `與共識差 ${Math.abs(nx - consNx)} 格` : null,
+      ].filter(Boolean).join(' · ');
+      tr.title = tip;
+      const status = using ? '<span class="tag">使用中</span>' : `<span class="dim">${v.status || '完成'}</span>`;
       tr.innerHTML =
-        `<td>${warn ? '<span class="warn">⚠</span>' : ''}${isCons ? '共識／仲裁' : (v.label || v.id)}</td>` +
+        `<td>${warn ? '<span class="warn" aria-label="與共識不一致">⚠</span>' : ''}${isCons ? '共識／仲裁' : (v.label || v.id)}</td>` +
         `<td>${nx}×${ny}</td><td>${sx}</td>` +
-        `<td><span class="px-bar" title="${score.toFixed(2)}"><i style="width:${Math.round(Math.max(0, Math.min(1, score)) * 100)}%"></i></span></td>` +
-        `<td>${ms === '' ? '—' : ms}</td>` +
-        `<td>${using ? '使用中' : (v.status || '完成')}</td>`;
+        `<td><span class="px-bar"><i style="width:${Math.round(Math.max(0, Math.min(1, score)) * 100)}%"></i></span></td>` +
+        `<td>${status}</td>`;
       tr.onclick = () => {
         if (isCons) {
           pxForceVoteId = null;
@@ -1509,18 +1528,55 @@ PA.ui = (() => {
     $('px-phy').value = g.phy.toFixed(2);
   }
 
+  // 比例鎖：開著的時候，格數兩邊維持原圖的長寬比（偏移為 0 時，格子就是正方形）。
+  // 只管手動編輯——偵測器算出來的格線照樣原樣填進來，不會被硬掰成整比例。
+  function pxSetLock(on, snap) {
+    pxLockRatio = !!on;
+    const b = $('px-lock');
+    b.classList.toggle('on', pxLockRatio);
+    b.setAttribute('aria-pressed', pxLockRatio ? 'true' : 'false');
+    b.querySelector('use').setAttribute('href', pxLockRatio ? '#i-lock' : '#i-unlock');
+    // 按下鎖是明確的動作，當場就把比例套上去（以目前的格數寬為準）
+    if (pxLockRatio && snap) pxOnEdit('count', 'x');
+  }
+
+  // 依原圖長寬比補另一邊。另一邊被 2..512 夾住時才反推回來，
+  // 沒被夾住就不動使用者剛打的那一格，免得數字在手上被四捨五入推走。
+  function pxLockCounts(edited) {
+    const im = store.img();
+    const r = im.w / im.h;
+    const cl = v => Math.max(2, Math.min(512, Math.round(v) || 2));
+    if (edited === 'y') {
+      const want = pxGrid.ny * r, nx = cl(want);
+      pxGrid.nx = nx;
+      if (nx !== Math.round(want)) pxGrid.ny = cl(nx / r);
+    } else {
+      const want = pxGrid.nx / r, ny = cl(want);
+      pxGrid.ny = ny;
+      if (ny !== Math.round(want)) pxGrid.nx = cl(ny * r);
+    }
+  }
+
   // 格數、格寬、偏移三者獨立（格線可能超出圖片邊緣，不能互相反推死）。
   // 採「最後編輯的欄位優先」：改格數就重算格寬，改格寬/偏移就重算格數。
-  function pxOnEdit(which) {
+  // edited（'x' / 'y'）是使用者動到的那一軸，只有比例鎖需要知道。
+  function pxOnEdit(which, edited) {
     if (!store.has() || !pxGrid) return;
     const im = store.img();
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    // 正在打字的欄位不要覆寫，只在值真的不同時才寫回去（避免游標跳掉）
+    const setIf = (id, v) => { const el = $(id); if (+el.value !== +v) el.value = v; };
     pxGrid.phx = +$('px-phx').value || 0;
     pxGrid.phy = +$('px-phy').value || 0;
 
     if (which === 'count') {
       pxGrid.nx = clamp(Math.round(+$('px-w').value) || 2, 2, 512);
       pxGrid.ny = clamp(Math.round(+$('px-h').value) || 2, 2, 512);
+      if (pxLockRatio) {
+        pxLockCounts(edited);
+        setIf('px-w', pxGrid.nx);
+        setIf('px-h', pxGrid.ny);
+      }
       pxGrid.sx = (im.w - pxGrid.phx) / pxGrid.nx;
       pxGrid.sy = (im.h - pxGrid.phy) / pxGrid.ny;
       $('px-sx').value = pxGrid.sx.toFixed(3);
@@ -1530,6 +1586,18 @@ PA.ui = (() => {
       pxGrid.sy = Math.max(1, +$('px-sy').value || 1);
       pxGrid.nx = clamp(Math.round((im.w - pxGrid.phx) / pxGrid.sx), 2, 512);
       pxGrid.ny = clamp(Math.round((im.h - pxGrid.phy) / pxGrid.sy), 2, 512);
+      if (pxLockRatio) {
+        pxLockCounts(edited);
+        // 格數被比例綁住之後，另一軸的格寬要跟著回算，兩列才不會顯示成互相矛盾的值。
+        // 使用者正在打的那一格不碰。
+        if (edited === 'y') {
+          pxGrid.sx = (im.w - pxGrid.phx) / pxGrid.nx;
+          setIf('px-sx', pxGrid.sx.toFixed(3));
+        } else {
+          pxGrid.sy = (im.h - pxGrid.phy) / pxGrid.ny;
+          setIf('px-sy', pxGrid.sy.toFixed(3));
+        }
+      }
       $('px-w').value = pxGrid.nx;
       $('px-h').value = pxGrid.ny;
     }
@@ -1646,7 +1714,7 @@ PA.ui = (() => {
       $('px-k-range').max = cap;
       $('px-k').value = Math.min(PX_K_DEFAULT, srcColours);
       $('px-k-range').value = Math.min(PX_K_DEFAULT, srcColours);
-      $('px-k-note').textContent = `顏色上限（0 = 不減色）· 原圖共 ${srcColours.toLocaleString()} 色`;
+      $('px-k-note').textContent = `原圖共 ${srcColours.toLocaleString()} 色 · 0 = 不減色`;
       $('px-snap').checked = false;
       pxSetBusy(false);
       pxNeedError = true;
@@ -1712,7 +1780,7 @@ PA.ui = (() => {
     $('px-k-range').max = cap;
     $('px-k').value = Math.min(PX_K_DEFAULT, srcColours);
     $('px-k-range').value = Math.min(PX_K_DEFAULT, srcColours);
-    $('px-k-note').textContent = `顏色上限（0 = 不減色）· 原圖共 ${srcColours.toLocaleString()} 色`;
+    $('px-k-note').textContent = `原圖共 ${srcColours.toLocaleString()} 色 · 0 = 不減色`;
 
     // 吸附在大圖（格子夠大、抖動明顯）幫助很大，在小圖反而會讓格線跑到內部細節上。
     // 兩種算出來的格數相同，重建誤差可以直接比較，所以用實測結果決定預設值。
@@ -2814,7 +2882,8 @@ PA.ui = (() => {
     $('px-method-info').onmouseenter = () => pxShowMethodInfo(true);
     $('px-method-info').onmouseleave = () => pxShowMethodInfo(false);
     $('px-method-info').onclick = e => { e.preventDefault(); pxShowMethodInfo($('px-method-pop').classList.contains('hide')); };
-    ['px-det-autocorr', 'px-det-runlength', 'px-det-selfsim', 'px-det-fft', 'px-det-perfecter', 'px-det-runs', 'px-det-legacy', 'px-precise'].forEach(id => {
+    // 注意 hough 也要在這裡，否則勾了沒反應（pxReadDetectors 會讀它，但沒人觸發重新偵測）
+    ['px-det-autocorr', 'px-det-runlength', 'px-det-selfsim', 'px-det-fft', 'px-det-perfecter', 'px-det-hough', 'px-det-runs', 'px-det-legacy', 'px-precise'].forEach(id => {
       const el = $(id);
       if (!el) return;
       el.onchange = () => {
@@ -2828,8 +2897,13 @@ PA.ui = (() => {
         pxDetect();
       };
     });
-    ['px-w', 'px-h'].forEach(id => { $(id).oninput = () => pxOnEdit('count'); });
-    ['px-sx', 'px-sy', 'px-phx', 'px-phy'].forEach(id => { $(id).oninput = () => pxOnEdit('size'); });
+    $('px-w').oninput = () => pxOnEdit('count', 'x');
+    $('px-h').oninput = () => pxOnEdit('count', 'y');
+    $('px-sx').oninput = () => pxOnEdit('size', 'x');
+    $('px-sy').oninput = () => pxOnEdit('size', 'y');
+    ['px-phx', 'px-phy'].forEach(id => { $(id).oninput = () => pxOnEdit('size', 'x'); });
+    $('px-lock').onclick = () => { pxSetLock(!pxLockRatio, true); pxSavePrefs(); };
+    pxSetLock(!!(pxReadPrefs() || {}).lockRatio, false);
     $('px-k').oninput = () => { $('px-k-range').value = Math.min(+$('px-k-range').max, Math.max(0, +$('px-k').value || 0)); pxRecomputeSoon(); };
     $('px-k-range').oninput = () => { $('px-k').value = $('px-k-range').value; pxRecomputeSoon(); };
     $('px-bg').oninput = pxRecomputeSoon;

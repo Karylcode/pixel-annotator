@@ -33,6 +33,10 @@
   --pad-l: 196px; --pad-r: 348px;
   /* 動態 */
   --dur-fast: 120ms; --dur: 180ms; --ease: cubic-bezier(.2,.7,.2,1);
+  /* 原生元件（select 的下拉清單、number 的上下箭頭）跟著深色主題走 */
+  color-scheme: dark;
+  /* select 的箭頭：SVG data-URI 吃不到 CSS 變數，深淺主題各給一份（顏色 = --fg-3） */
+  --sel-chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5l3.5 3.5 3.5-3.5' fill='none' stroke='%23a3a1b8' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 @media (prefers-reduced-motion: reduce) { :root { --dur-fast: 0ms; --dur: 0ms; } }
 @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
@@ -45,6 +49,8 @@
   --checker-a: #d9d9e3; --checker-b: #ececf2; --sw-line: #00000026;
   --scroll-thumb: #00000033; --scroll-thumb-hover: #00000066;
   --shadow-2: 0 16px 40px #00000022; --shadow-3: 0 24px 60px #00000026;
+  color-scheme: light;
+  --sel-chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5l3.5 3.5 3.5-3.5' fill='none' stroke='%236a6a7c' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 } }
 
 * { box-sizing: border-box; }
@@ -273,8 +279,41 @@ label.chk {
   display: flex; align-items: center; gap: var(--sp-2);
   font-size: var(--fs-sm); color: var(--fg-2); cursor: pointer;
 }
-label.chk input { accent-color: var(--focus); width: 14px; height: 14px; margin: 0; flex: none; }
 label.chk.sm { font-size: var(--fs-data); }
+label.chk:has(input:disabled) { color: var(--fg-3); cursor: default; }
+/* 核取方塊自己畫：原生的在深色主題下是灰白方塊，跟其他元件不搭。
+   勾勾用 clip-path 畫（不用 SVG），顏色跟 --focus-ink 走，深淺主題都對 */
+label.chk input {
+  appearance: none; -webkit-appearance: none;
+  width: 14px; height: 14px; margin: 0; flex: none; cursor: pointer;
+  border: 1.5px solid var(--line-1); border-radius: 4px; background: var(--bg);
+  display: inline-grid; place-content: center;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+/* 勾勾尺寸用 px 不用 %：input 上的 ::before 百分比會解成 0 */
+label.chk input::before {
+  content: ""; width: 8px; height: 8px; background: var(--focus-ink);
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  transform: scale(0); transition: transform var(--dur-fast) var(--ease);
+}
+label.chk input:checked { background: var(--focus); border-color: var(--focus); }
+label.chk input:checked::before { transform: scale(1); }
+label.chk:hover input:not(:disabled):not(:checked) { border-color: var(--fg-3); }
+label.chk input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+label.chk input:disabled { opacity: .4; cursor: default; }
+/* select 自己畫：拿掉原生外觀，箭頭用 --sel-chev（深淺主題各一份）；下拉清單本身靠 color-scheme 跟主題 */
+select {
+  appearance: none; -webkit-appearance: none;
+  background: var(--bg) var(--sel-chev) no-repeat right 8px center;
+  border: 1px solid var(--line-1); border-radius: var(--r-sm); color: var(--fg-1);
+  height: var(--ctl-h-sm); padding: 0 28px 0 var(--sp-2); font-size: var(--fs-sm);
+  cursor: pointer; max-width: 100%; text-overflow: ellipsis;
+  transition: border-color var(--dur-fast) var(--ease);
+}
+select:hover:not(:disabled) { border-color: var(--fg-3); }
+select:focus { outline: none; border-color: var(--focus); box-shadow: 0 0 0 2px #8ab4ff44; }
+select:disabled { opacity: .5; cursor: default; }
+select option { background: var(--surface-2); color: var(--fg-1); }
 .legend { width: 8px; height: 8px; border-radius: 2px; display: inline-block; flex: none; }
 input[type=text], .hexinput {
   background: var(--bg); border: 1px solid var(--line-1); color: var(--fg-1);
@@ -609,62 +648,139 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
    8.5px，加上垂直置中，整個視窗還會上下位移 4.3px —— 展開／收合時看起來就會「跳一下」。 */
 #pxmodal .box.wide { height: 96vh; }
 
-/* 側欄自己捲：展開「進階」後內容會比對話框高，不自己捲的話會溢出去蓋掉底部按鈕 */
+/* ── 側欄：三張卡片（格線 / 顏色 / 清理）+ 底部一個收合的「進階」 ──
+   側欄自己捲：展開細節後內容會比對話框高，不自己捲的話會溢出去蓋掉底部按鈕 */
 .pxside {
-  width: 320px; flex: none; display: flex; flex-direction: column; gap: var(--sp-4);
+  width: 320px; flex: none; display: flex; flex-direction: column; gap: var(--sp-3);
   min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: var(--sp-1);
-  /* 捲軸空間永遠保留：否則展開「進階」時捲軸一出現，欄位寬度會整排縮 10px */
+  /* 捲軸空間永遠保留：否則捲軸一出現，欄位寬度會整排縮 10px */
   scrollbar-gutter: stable;
 }
-.pxgroup { display: flex; flex-direction: column; gap: var(--sp-2); }
-.pxinfo { font-size: var(--fs-sm); color: var(--fg-2); line-height: 1.6; }
-.pxinfo b { color: var(--fg-1); font-weight: 500; }
+.pxcard {
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  background: var(--surface-2); border: 1px solid var(--line-1); border-radius: var(--r-md);
+  padding: var(--sp-3);
+}
+.pxcard-h { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: 2px; }
+.pxcard-h .stepnum { font-size: var(--fs-md); }
+
+/* 一列 = 左邊 60px 的標籤 + 右邊的控制項；標籤靠控制項垂直置中 */
+.pxrow { display: grid; grid-template-columns: 60px minmax(0, 1fr); align-items: center; gap: var(--sp-2); min-height: var(--ctl-h-sm); }
+.pxrow > .lbl { font-size: var(--fs-sm); color: var(--fg-3); white-space: nowrap; }
+.pxrow > .ctl { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.pxrow > .ctl > select, .pxrow > .ctl > input[type=range] { flex: 1; min-width: 0; }
+.pxrow > .ctl > input[type=number] { min-width: 0; }
+.pxrow > .ctl .unit, .pxrow > .ctl .x { font-size: var(--fs-data); color: var(--fg-3); flex: none; }
+/* 兩個數字並排（格數 W×H、格寬 X×Y、偏移 X,Y） */
+.pxrow > .ctl.pair > input[type=number] { flex: 1; width: 0; }
+.pxrow > .ctl > .lockbtn { color: var(--fg-3); }
+.pxrow > .ctl > .lockbtn.on { background: var(--accent-soft); color: var(--accent-fg); }
+.pxrow > .ctl.krow > input[type=number] { width: 60px; flex: none; }
+/* 停用的整列（抖色 = 無時的強度）一起變淡 */
+.pxrow:has(> .ctl > :disabled) > .lbl { opacity: .45; }
+.pxnote { margin: -4px 0 0 68px; }   /* 顏色上限下方的說明，對齊控制項那一欄 */
+#pxmodal input[type=number] { height: var(--ctl-h-sm); padding-block: 0; }
+#pxmodal #px-target-w { width: 84px; }
+
+/* 方法列：ⓘ 說明浮在列的下方，不推擠版面（原本會把整欄往下推） */
+.px-method-row { position: relative; }
+.px-method-row .btn.icon { color: var(--fg-3); }
+.px-method-row .btn.icon:hover { color: var(--fg-1); }
+.px-method-pop {
+  position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5;
+  font-size: var(--fs-sm); color: var(--fg-2); line-height: 1.55;
+  background: var(--surface-1); border: 1px solid var(--line-1); border-radius: var(--r-md);
+  padding: var(--sp-2) var(--sp-3); box-shadow: var(--shadow-2);
+}
+.px-method-pop b { color: var(--fg-1); font-weight: 600; }
+
+/* 偵測狀態：一句話 + 重建誤差，包成一小塊 */
+.pxstatus {
+  background: var(--surface-3); border-radius: var(--r-sm); padding: var(--sp-2) var(--sp-3);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.pxstatus:empty { display: none; }
+.pxinfo { font-size: var(--fs-sm); color: var(--fg-2); line-height: 1.5; }
+.pxinfo:empty { display: none; }
+.pxinfo b { color: var(--fg-1); font-weight: 600; }
 .pxinfo .good { color: var(--success-fg); }
 .pxinfo .bad { color: var(--warn-fg); }
-#px-adv summary { cursor: pointer; font-size: var(--fs-sm); color: var(--fg-3); padding: var(--sp-1) 0; }
-#px-adv summary:hover { color: var(--fg-1); }
-.advgrid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); padding: var(--sp-2) 0; }
-.advgrid label { display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-data); color: var(--fg-3); }
-.advgrid input { width: 100%; }
-.krow { display: flex; align-items: center; gap: var(--sp-2); }
-.krow input[type=range] { flex: 1; }
-.krow input[type=number] { width: 68px; flex: none; }
+
+/* 投票表：一列一個偵測器，點一列就改用它的格線；使用中的那列亮起來 */
+.px-votes-wrap { overflow-x: auto; max-width: 100%; margin-inline: calc(-1 * var(--sp-1)); }
+#px-votes { width: 100%; border-collapse: collapse; font-size: var(--fs-data); }
+#px-votes th, #px-votes td { text-align: left; padding: 4px 4px; white-space: nowrap; color: var(--fg-2); }
+#px-votes th { color: var(--fg-3); font-weight: 500; border-bottom: 1px solid var(--line-1); }
+#px-votes td { border-bottom: 1px solid var(--line-2); }
+#px-votes tbody tr:last-child td { border-bottom: none; }
+#px-votes th:nth-child(2), #px-votes td:nth-child(2),
+#px-votes th:nth-child(3), #px-votes td:nth-child(3) { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+#px-votes tbody tr { cursor: pointer; transition: background var(--dur-fast) var(--ease); }
+#px-votes tbody tr:hover td { background: var(--surface-3); }
+#px-votes tbody tr:first-child td:first-child { border-top-left-radius: var(--r-sm); }
+#px-votes tr.px-vote-on td { color: var(--fg-1); font-weight: 600; }
+#px-votes tr.px-vote-on td:first-child { box-shadow: inset 2px 0 0 var(--focus); }
+#px-votes .px-bar { display: block; height: 4px; width: 100%; min-width: 36px; background: var(--surface-3); border-radius: 2px; overflow: hidden; }
+#px-votes .px-bar > i { display: block; height: 100%; background: var(--focus); border-radius: 2px; }
+#px-votes .warn { margin-right: 2px; color: var(--warn-fg); }
+#px-votes .tag {
+  display: inline-block; font-size: 10px; font-weight: 600; line-height: 1; padding: 3px 6px;
+  border-radius: var(--r-pill); background: var(--info-bg); color: var(--info-fg);
+}
+#px-votes .dim { color: var(--fg-3); font-weight: 400; }
+
+/* 收合區：自己畫的三角，展開時轉 90° */
+.pxdetails > summary {
+  list-style: none; cursor: pointer; user-select: none;
+  display: flex; align-items: center; gap: var(--sp-2);
+  font-size: var(--fs-sm); color: var(--fg-3); padding: var(--sp-1) 0;
+}
+.pxdetails > summary::-webkit-details-marker { display: none; }
+.pxdetails > summary::before {
+  content: ""; width: 0; height: 0; flex: none;
+  border-left: 5px solid currentColor; border-top: 4px solid transparent; border-bottom: 4px solid transparent;
+  transition: transform var(--dur-fast) var(--ease);
+}
+.pxdetails[open] > summary::before { transform: rotate(90deg); }
+.pxdetails > summary:hover { color: var(--fg-1); }
+.pxdetails-body { display: flex; flex-direction: column; gap: var(--sp-2); padding-top: var(--sp-2); }
+/* 卡片外的進階區：沒有底色，只有一條分隔線；左右內距跟卡片內容對齊 */
+.pxdetails-plain { border-top: 1px solid var(--line-1); padding: var(--sp-1) var(--sp-3) 0; }
+.pxdetails-plain[open] { padding-bottom: var(--sp-2); }
+.pxsub { font-size: var(--fs-sm); color: var(--fg-2); }
+
+/* 切換膠囊（清理項目、偵測器）：多選 = 藍，跟核取方塊同一套語意 */
+.pxtogs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tog {
+  display: inline-flex; align-items: center; height: 26px; padding: 0 10px;
+  border: 1px solid var(--line-1); border-radius: var(--r-pill); background: var(--bg);
+  font-size: var(--fs-data); color: var(--fg-2); cursor: pointer; user-select: none;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.tog > input { position: absolute; opacity: 0; width: 0; height: 0; margin: 0; pointer-events: none; }
+.tog:hover { border-color: var(--fg-3); color: var(--fg-1); }
+.tog:has(> input:checked) { background: var(--info-bg); border-color: var(--info); color: var(--info-fg); font-weight: 600; }
+.tog:has(> input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+.tog:has(> input:disabled) { opacity: .4; cursor: default; }
+
+/* 核取方塊在側欄裡稍微放大，並讓後面的灰字說明貼著主文字 */
+.pxside label.chk input { width: 16px; height: 16px; }
+.pxside label.chk input::before { width: 10px; height: 10px; }
+.pxside label.chk .sub { margin-left: 2px; }
+.pxside label.chk:has(#px-bg) { justify-content: flex-start; }
+.pxside #px-bginfo:not(:empty)::before { content: "· "; }
+
+/* 其餘 */
 .warnline { color: var(--warn-fg); font-size: var(--fs-sm); }
 #px-progress { display: flex; align-items: center; gap: var(--sp-3); }
 .pbar { flex: 1; height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
 #px-pfill { height: 100%; width: 0; background: var(--accent); border-radius: 3px; transition: width var(--dur-fast) linear; }
 #pxmodal .box.over { border-color: var(--focus); box-shadow: 0 0 0 2px var(--focus) inset, var(--shadow-3); }
 #pxmodal .box.busy .pxmid, #pxmodal .box.busy .pxstep, #pxmodal .box.busy .dfoot { opacity: .5; pointer-events: none; }
-#pxmodal .px-method-row { display: flex; align-items: flex-end; gap: var(--sp-2); }
-#pxmodal .px-method-row label { display: flex; flex-direction: column; gap: var(--sp-1); flex: 1; font-size: var(--fs-data); color: var(--fg-3); }
-#pxmodal #px-method { width: 100%; }
-#pxmodal .px-method-pop {
-  font-size: var(--fs-sm); color: var(--fg-2); line-height: 1.55;
-  background: var(--surface-2); border: 1px solid var(--line-1); border-radius: var(--r-md);
-  padding: var(--sp-2) var(--sp-3);
-}
-#pxmodal .px-method-pop b { color: var(--fg-1); font-weight: 600; }
-#pxmodal .px-votes-wrap { overflow-x: auto; max-width: 100%; }
-#pxmodal #px-votes { width: 100%; border-collapse: collapse; font-size: var(--fs-data); }
-#pxmodal #px-votes th, #pxmodal #px-votes td {
-  text-align: left; padding: 3px 4px; border-bottom: 1px solid var(--line-1);
-  white-space: nowrap; color: var(--fg-2);
-}
-#pxmodal #px-votes th { color: var(--fg-3); font-weight: 500; }
-#pxmodal #px-votes tr.px-vote-on td { color: var(--fg-1); font-weight: 600; }
-#pxmodal #px-votes tr { cursor: pointer; }
-#pxmodal #px-votes .px-bar { display: block; height: 4px; width: 48px; background: var(--surface-3); border-radius: 2px; overflow: hidden; }
-#pxmodal #px-votes .px-bar > i { display: block; height: 100%; background: var(--accent); }
-#pxmodal #px-votes .warn { margin-right: 2px; }
-#pxmodal .px-dets { display: flex; flex-direction: column; gap: 2px; padding-top: var(--sp-2); }
-/* 特異性要壓過下面的 #pxmodal .pxgroup label（1,1,1），否則「目標寬度」在非照片路線也會常駐 */
-#pxmodal .pxgroup .px-photo-only,
+/* 照片路線（PixelOE / Image-to-Pixel）：沒有偵測器 → 藏投票表與偵測器膠囊，改顯示目標寬度 */
 #pxmodal .px-photo-only { display: none; }
-#pxmodal.px-photo-mode .px-photo-only { display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-data); color: var(--fg-3); }
+#pxmodal.px-photo-mode .pxrow.px-photo-only { display: grid; }
 #pxmodal.px-photo-mode .px-grid-only { display: none; }
-#pxmodal #px-quant, #pxmodal #px-dither, #pxmodal #px-dither-strength, #pxmodal #px-target-w { width: 100%; }
-#pxmodal .pxgroup label { display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-data); color: var(--fg-3); margin-top: var(--sp-2); }
-#pxmodal .pxgroup label.chk { flex-direction: row; align-items: center; }
 
 /* ═══ Toast v2：右下堆疊、語意色條、動作鈕 ═══ */
 #toasts {
@@ -880,7 +996,12 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
   .part .sw { width: 44px; height: 44px; }
   #newpart { min-height: 40px; }
   label.chk { min-height: 32px; }
-  label.chk input { width: 18px; height: 18px; }
+  label.chk input, .pxside label.chk input { width: 18px; height: 18px; }
+  label.chk input::before, .pxside label.chk input::before { width: 11px; height: 11px; }
+  /* 像素化側欄的控制項也放大到好按 */
+  select, #pxmodal input[type=number] { height: var(--ctl-h-lg); }
+  .pxrow { min-height: var(--ctl-h-lg); }
+  .tog { height: 34px; padding: 0 12px; font-size: var(--fs-sm); }
   .menu .mi { min-height: 44px; padding: 10px var(--sp-3); }
   .menu { max-width: calc(100vw - 16px); }
   #histpanel { width: min(280px, calc(100vw - 16px)); max-height: 50vh; }
