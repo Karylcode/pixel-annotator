@@ -19,6 +19,33 @@ PA.store = (() => {
   const PART_PALETTE = ['#e5484d', '#f76808', '#ffb224', '#46a758', '#12a594', '#0091ff',
                         '#6e56cf', '#d6409f', '#8e4ec6', '#a18072', '#3e63dd', '#30a46c'];
 
+  // 只接受 #rgb / #rrggbb，一律變成小寫 #rrggbb。非法值回傳 fallback，呼叫端可另計警告。
+  function normalizePartColor(value, fallback) {
+    const fb = fallback || PART_PALETTE[0];
+    const s = String(value == null ? '' : value).trim();
+    const m3 = /^#([0-9a-fA-F]{3})$/.exec(s);
+    if (m3) {
+      const a = m3[1][0], b = m3[1][1], c = m3[1][2];
+      return ('#' + a + a + b + b + c + c).toLowerCase();
+    }
+    if (/^#[0-9a-fA-F]{6}$/.test(s)) return s.toLowerCase();
+    return fb;
+  }
+  function partColorValid(value) {
+    const s = String(value == null ? '' : value).trim();
+    return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(s);
+  }
+  function takePartColor(value, index, stats) {
+    const fb = PART_PALETTE[index % PART_PALETTE.length];
+    if (value == null || String(value).trim() === '') return fb;
+    if (!partColorValid(value)) {
+      if (stats) stats.invalid++;
+      return fb;
+    }
+    return normalizePartColor(value, fb);
+  }
+
+
   const state = {
     imgs: [],            // [{name, w, h, rgba, cvs, rev}]  rev：點陣圖版本，改過像素就 +1（快取用）
     cur: -1,
@@ -151,11 +178,14 @@ PA.store = (() => {
         const ids = new Set();
         for (let i = 0; i < grid.length; i++) if (grid[i]) ids.add(grid[i]);
         Object.keys(names).forEach(key => { if (+key) ids.add(+key); });
+        const colorStats = { invalid: 0 };
         a.parts = [...ids].sort((x, y) => x - y).map((id, i) => ({
-          id, name: names[id] || '部件', color: colors[id] || PART_PALETTE[i % PART_PALETTE.length]
+          id, name: names[id] || '部件', color: takePartColor(colors[id], i, colorStats)
         }));
         a.next = nextPartId(a.parts);
         a.grid = grid;
+        if (colorStats.invalid)
+          warning = (warning ? warning + '；' : '') + `${colorStats.invalid} 個非法顏色已改用預設色`;
       } else {
         warning = `parts.grid 有 ${flatLen < 0 ? `${rows}×${cols}（列不是陣列）` : flatLen} 格，與 ${w}×${h} 不符，已略過標註`;
       }
@@ -620,7 +650,12 @@ PA.store = (() => {
     if (p && v) p.name = v;
   }
 
-  function setPartColor(id, color) { const p = partById(id); if (p) p.color = color; }
+  function setPartColor(id, color) {
+    const p = partById(id);
+    if (!p) return;
+    const i = annot().parts.indexOf(p);
+    p.color = normalizePartColor(color, PART_PALETTE[(i < 0 ? 0 : i) % PART_PALETTE.length]);
+  }
 
   function movePart(id, to) {
     const parts = annot().parts;
@@ -631,24 +666,27 @@ PA.store = (() => {
     parts.splice(Math.max(0, Math.min(parts.length, to)), 0, m);
   }
 
-  // 從外部 JSON 覆蓋整組標註。尺寸不符回傳錯誤訊息（不改任何東西）；成功回傳 null
+  // 從外部 JSON 覆蓋整組標註。尺寸不符回傳 { error }（不改任何東西）；成功回傳 { error: null, warnings }
   function applyAnnotation(d) {
-    if (!has()) return '沒有開啟的圖片';
+    if (!has()) return { error: '沒有開啟的圖片', warnings: [] };
     const im = img(), a = annot();
     const P = d && d.parts;
-    if (!P || !Array.isArray(P.grid) || !P.grid.every(Array.isArray)) return '這個檔案沒有 parts.grid';
+    if (!P || !Array.isArray(P.grid) || !P.grid.every(Array.isArray)) return { error: '這個檔案沒有 parts.grid', warnings: [] };
     const flatLen = P.grid.reduce((s, r) => s + r.length, 0);
-    if (flatLen !== im.w * im.h) return `parts.grid 有 ${flatLen} 格，與 ${im.w}×${im.h} 不符`;
+    if (flatLen !== im.w * im.h) return { error: `parts.grid 有 ${flatLen} 格，與 ${im.w}×${im.h} 不符`, warnings: [] };
     const grid = new Int16Array(im.w * im.h);
     let k = 0;
     for (const row of P.grid) for (const v of row) grid[k++] = v | 0;
+    const colorStats = { invalid: 0 };
     a.parts = Object.entries(P.names || {}).map(([key, v], i) =>
-      ({ id: +key, name: v, color: (P.colors || {})[key] || PART_PALETTE[i % PART_PALETTE.length] }));
+      ({ id: +key, name: v, color: takePartColor((P.colors || {})[key], i, colorStats) }));
     a.next = nextPartId(a.parts);
     a.grid = grid;
     recount(a, im);
     resetSel();
-    return null;
+    const warnings = [];
+    if (colorStats.invalid) warnings.push(`${colorStats.invalid} 個非法顏色已改用預設色`);
+    return { error: null, warnings };
   }
 
   /* ---------- 選取 ---------- */
@@ -902,12 +940,28 @@ PA.store = (() => {
     await done;
   }
   async function idbClear() {
+    const db = await idbOpen();
+    const { store, done } = idbTx(db, 'readwrite');
+    store.clear();
+    await done;
+  }
+
+  async function clearSaved() {
+    let lsFail = false, idbFail = false;
+    for (const key of [LS_KEY, LS_KEY_LEGACY, LS_STALE]) {
+      try { localStorage.removeItem(key); }
+      catch (e) { lsFail = true; }
+    }
     try {
-      const db = await idbOpen();
-      const { store, done } = idbTx(db, 'readwrite');
-      store.clear();
-      await done;
-    } catch (e) {}
+      if (typeof indexedDB !== 'undefined') await idbClear();
+    } catch (e) { idbFail = true; }
+    if (lsFail || idbFail) {
+      const parts = [];
+      if (lsFail) parts.push('localStorage');
+      if (idbFail) parts.push('IndexedDB');
+      return { ok: false, reason: parts.join('+') };
+    }
+    return { ok: true };
   }
 
   function dataUrlOf(im) {
@@ -986,7 +1040,7 @@ PA.store = (() => {
     } catch (e) { return done(false, {}); }
     if (!raw) return done(false, {});
     let p;
-    try { p = JSON.parse(raw); } catch (e) { clearSaved(); return done(false, { corrupt: true }); }
+    try { p = JSON.parse(raw); } catch (e) { Promise.resolve(clearSaved()).catch(() => {}); return done(false, { corrupt: true }); }
     if (!p || !Array.isArray(p.imgs) || !p.imgs.length) return done(false, {});
 
     let stale = null;
@@ -1003,6 +1057,7 @@ PA.store = (() => {
         state.imgs = keep.map(i => slots[i]);
         state.ann = {}; state.hist = {};
         const ann = (p.ann && typeof p.ann === 'object') ? p.ann : {};
+        const colorStats = { invalid: 0 };
         for (const im of state.imgs) {
           const v = ann[im.name];
           let a = null;
@@ -1010,7 +1065,11 @@ PA.store = (() => {
             const grid = codec.unpackGrid(v.grid, im.w * im.h);
             if (grid) {
               a = { parts: Array.isArray(v.parts) ? v.parts.filter(q => q && typeof q === 'object' && +q.id)
-                              .map(q => ({ id: +q.id, name: String(q.name ?? '部件'), color: String(q.color || PART_PALETTE[0]) })) : [],
+                              .map((q, i) => {
+                                const raw = q.color;
+                                const color = takePartColor(raw, i, colorStats);
+                                return { id: +q.id, name: String(q.name ?? '部件'), color };
+                              }) : [],
                     next: Math.max(1, +v.next || 0), grid };
               a.next = nextPartId(a.parts, a.next);
             } else info.failed.push(im.name + '（標註與圖片尺寸不符，已略過）');
@@ -1024,11 +1083,13 @@ PA.store = (() => {
         const want = keep.indexOf(p.cur ?? 0);
         state.cur = state.imgs.length ? Math.max(0, want) : -1;
         restoreSel();
+        if (colorStats.invalid)
+          (info.warnings ||= []).push(`${colorStats.invalid} 個非法顏色已改用預設色`);
         done(state.imgs.length > 0, info);
       } catch (e) {
         // 讀進來的資料有問題：不要留在半還原狀態，也不要下次再踩一次
         state.imgs = []; state.ann = {}; state.hist = {}; state.selByImg = {}; state.cur = -1;
-        clearSaved();
+        Promise.resolve(clearSaved()).catch(() => {});
         done(false, { corrupt: true });
       }
     };
@@ -1075,12 +1136,6 @@ PA.store = (() => {
     });
   }
 
-  function clearSaved() {
-    try { localStorage.removeItem(LS_KEY); } catch (e) {}
-    try { localStorage.removeItem(LS_STALE); } catch (e) {}
-    idbClear();
-  }
-
   // 另一個分頁寫了較新的資料 → 記下來並通知 ui；save() 之後會拒絕寫入，避免互相覆蓋
   try {
     window.addEventListener('storage', e => {
@@ -1100,7 +1155,7 @@ PA.store = (() => {
   const hasForeignWrite = () => !!foreignWrite;
 
   return {
-    state, PART_PALETTE,
+    state, PART_PALETTE, normalizePartColor,
     has, img, annot, idx, partById, rgbaAt, alphaAt, inBounds, partCounts, coverage, hasAnnotation,
     addBitmap, addDecoded, closeCurrent, select, uniqueName,
     snapshot, snapshotImage, beginStroke, beginPixelStroke, endStroke, cancelLastAction,

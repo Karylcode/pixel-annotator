@@ -112,6 +112,27 @@ PA.pixelate = PA.pixelate || {};
     },
   ];
 
+  // 舊版 UI／CLI／文件用的名稱；presets 只留正式 ID，UI 選單不會出現重複項
+  PA.pixelate.presetAliases = {
+    standard: 'pixel-art-fixer',
+    precise: 'pixel-art-fixer-full',
+  };
+
+  function getPreset(id) {
+    if (id == null || id === '') return null;
+    const canonical = PA.pixelate.presetAliases[id] || id;
+    return (PA.pixelate.presets || []).find(p => p.id === canonical) || null;
+  }
+
+  function validPresetNames() {
+    const ids = (PA.pixelate.presets || []).map(p => p.id);
+    const aliases = Object.keys(PA.pixelate.presetAliases || {});
+    return ids.concat(aliases.filter(a => ids.indexOf(a) < 0));
+  }
+
+  PA.pixelate.getPreset = getPreset;
+  PA.pixelate.validPresetNames = validPresetNames;
+
   /* ---------- 原生／整數倍前置檢查 ----------
      手繪像素圖（本來就是 1:1）與「整數倍最近鄰放大」這兩種輸入，用頻域偵測器反而會出錯：
      實測 100×100 的手繪像素圖被各方法降成 50×50／25×25／2×2，等於毀掉作品。

@@ -1,37 +1,11 @@
-/* tools/bench/run.js — 24 例合成測試。--method <preset>；--baseline 存 JSON；--compare 與 baseline 逐位比對。 */
+/* tools/bench/run.js — 24 例合成測試。--method <preset>；--baseline 存 JSON；--compare 與 baseline 逐位比對。
+   未知方法直接失敗（不回退 legacy）。可選 --min-hit N：低於門檻才 exit 1。 */
 const fs = require('fs');
 const path = require('path');
 const { makeNative, upscale, blurImg, CASES } = require('./gen.js');
 
 const ROOT = path.resolve(__dirname, '../..');
-const FILES = [
-  'js/pixelate/lib/colour.js',
-  'js/pixelate/lib/profile.js',
-  'js/pixelate/lib/fft.js',
-  'js/pixelate/lib/morph.js',
-  'js/pixelate/lib/canny.js',
-  'js/pixelate/grid.js',
-  'js/pixelate/detect/legacy.js',
-  'js/pixelate/detect/autocorr.js',
-  'js/pixelate/detect/runlength.js',
-  'js/pixelate/detect/selfsim.js',
-  'js/pixelate/detect/fft.js',
-  'js/pixelate/detect/perfecter.js',
-  'js/pixelate/detect/hough.js',
-  'js/pixelate/detect/runs.js',
-  'js/pixelate/detect/arbitrate.js',
-  'js/pixelate/sample/center-median.js',
-  'js/pixelate/sample/two-stage.js',
-  'js/pixelate/sample/stats.js',
-  'js/pixelate/sample/geomedian.js',
-  'js/pixelate/sample/pixeloe.js',
-  'js/pixelate/quant/oklab-kmeans.js',
-  'js/pixelate/quant/median-cut.js',
-  'js/pixelate/dither/adapter.js',
-  'js/pixelate/clean/bg.js',
-  'js/pixelate/clean/morph.js',
-  'js/pixelate/index.js',
-];
+const FILES = require('../pixelate-files.js');
 
 function loadPixelate() {
   for (const f of FILES) {
@@ -46,13 +20,14 @@ function loadPixelate() {
 }
 
 function parseArgs(argv) {
-  const out = { method: 'legacy', baseline: false, compare: null, k: 0, bg: false };
+  const out = { method: 'legacy', baseline: false, compare: null, k: 0, bg: false, minHit: null };
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] === '--method') out.method = argv[++i];
     else if (argv[i] === '--baseline') out.baseline = true;
     else if (argv[i] === '--compare') out.compare = argv[++i] || path.join(__dirname, 'baseline-legacy.json');
     else if (argv[i] === '--k') out.k = +argv[++i] || 0;
     else if (argv[i] === '--bg') out.bg = true;
+    else if (argv[i] === '--min-hit') out.minHit = +argv[++i];
   }
   return out;
 }
@@ -92,9 +67,10 @@ async function detectGrid(rgba, w, h) {
 async function runOne(c, k, method, colours, removeBg) {
   const nat = makeNative(c.n, 1000 + k * 37, c.blocky);
   const big = blurImg(upscale(nat, c.f, c.smooth), c.blur);
-  const preset = (PA.pixelate.presets || []).find(p => p.id === method);
+  const preset = PA.pixelate.getPreset(method);
+  if (!preset) throw new Error('找不到預設組合：' + method);
   let grid, px, votes = [], timings = {};
-  if (method === 'legacy' || !PA.pixelate.runPipeline || !preset) {
+  if (preset.id === 'legacy' || !PA.pixelate.runPipeline) {
     grid = await detectGrid(big.rgba, big.w, big.h);
     if (grid && PA.pixelate.run) {
       const r = PA.pixelate.run(big.rgba, big.w, big.h, {
@@ -136,6 +112,13 @@ async function runOne(c, k, method, colours, removeBg) {
 async function main() {
   loadPixelate();
   const args = parseArgs(process.argv);
+  const preset = PA.pixelate.getPreset(args.method);
+  if (!preset) {
+    console.error('找不到預設組合：' + args.method);
+    console.error('有效名稱：' + (PA.pixelate.validPresetNames() || []).join(', '));
+    process.exit(1);
+  }
+  args.method = preset.id;
   const rows = [];
   let hits = 0, exacts = 0;
   for (let k = 0; k < CASES.length; k++) {
@@ -189,6 +172,11 @@ async function main() {
     } else {
       console.log('compare OK: 24/24 bit-identical to ' + path.basename(cmpPath));
     }
+  }
+
+  if (args.minHit != null && Number.isFinite(args.minHit) && hits < args.minHit) {
+    console.error('min-hit FAILED: ' + hits + '/' + CASES.length + ' < ' + args.minHit);
+    process.exit(1);
   }
 }
 

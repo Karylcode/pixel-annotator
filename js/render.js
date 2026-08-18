@@ -9,6 +9,7 @@ PA.render = (() => {
   const HILITE = '#ffffff';      // 滑過部件列時該部件反白的顏色
   const GRID_MIN_ZOOM = 6;       // 太小的時候格線只會糊成一片
   const MAX_ZOOM = 48;
+  const SAFE_FILL = /^#[0-9a-f]{6}$/;   // 外部顏色進 Canvas 前的最後一道門
 
   // 疊加層固定色（不隨主題，對應設計文件 --ov-*）
   const OV_GRID_DARK = 'rgba(0,0,0,.28)';
@@ -304,7 +305,7 @@ PA.render = (() => {
     const fillOf = new Map();          // id -> colour | null
     for (const p of a.parts) {
       const id = p.id;
-      fillOf.set(id, id === S.hoverPart ? HILITE : S.shownParts.has(id) ? p.color : null);
+      fillOf.set(id, id === S.hoverPart ? HILITE : S.shownParts.has(id) ? (SAFE_FILL.test(p.color) ? p.color : null) : null);
     }
     const paths = new Map();           // colour -> Path2D
     for (let y = 0; y < h; y++) {

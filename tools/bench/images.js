@@ -5,11 +5,8 @@
 const fs = require('fs'), path = require('path');
 const ROOT = path.resolve(__dirname, '../..');
 const { readPng } = require(path.join(ROOT, 'tools/png.js'));
-const FILES = ['lib/colour','lib/profile','lib/fft','lib/morph','lib/canny','grid',
-  'detect/legacy','detect/autocorr','detect/runlength','detect/selfsim','detect/fft','detect/perfecter','detect/hough','detect/runs','detect/arbitrate',
-  'sample/center-median','sample/two-stage','sample/stats','sample/geomedian','sample/pixeloe',
-  'quant/oklab-kmeans','quant/median-cut','dither/adapter','clean/bg','clean/morph','index'];
-for (const f of FILES) require(path.join(ROOT, 'js/pixelate', f + '.js'));
+const FILES = require(path.join(ROOT, 'tools/pixelate-files.js'));
+for (const f of FILES) require(path.join(ROOT, f));
 const PX = global.PA.pixelate;
 
 // 已知答案：原生手繪像素圖應維持原尺寸；@32x 是 24×24 放大 32 倍
@@ -29,7 +26,12 @@ const DIR = args.dir || 'C:/Users/Karyl/Downloads/GPT PIXEL';
 
 (async () => {
   const hooks = { onProgress: () => {}, cancelled: () => false, tick: () => Promise.resolve() };
-  const presets = PX.presets.filter(p => !args.methods || args.methods.includes(p.id));
+  const wanted = args.methods ? args.methods.map(id => {
+    const p = PX.getPreset(id);
+    if (!p) throw new Error('未知方法：' + id);
+    return p.id;
+  }) : null;
+  const presets = PX.presets.filter(p => !wanted || wanted.includes(p.id));
   const files = fs.readdirSync(DIR).filter(f => /\.png$/i.test(f)).filter(f => !args.only || f.includes(args.only));
   for (const file of files) {
     const img = readPng(fs.readFileSync(path.join(DIR, file)));
