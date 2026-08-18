@@ -430,7 +430,11 @@ PA.pixelate = PA.pixelate || {};
     if (wk) return true;
     if (!SCRIPT_URL || typeof Worker === 'undefined') { workerFailed = true; return false; }
     try {
-      wk = new Worker(new URL('../pixelate-worker.js', SCRIPT_URL));
+      // 沿用本檔網址上的 ?v=… 版本參數：相對路徑不會自動帶過去，
+      // 少了它 worker 會被瀏覽器的舊快取擋住，跟主執行緒版本對不上
+      const wurl = new URL('../pixelate-worker.js', SCRIPT_URL);
+      wurl.search = new URL(SCRIPT_URL).search;
+      wk = new Worker(wurl);
       wk.onmessage = onMsg;
       wk.onerror = () => {
         if (dying) return;
