@@ -87,3 +87,21 @@ SOFTWARE.
 - commit：`b0d5b7422db309dae22c2a69d4ebca0ce8c14b78`
 - 授權：函式庫檔 MIT（應用程式部分為 Apache-2.0，未納入）
 - 我們 vendor 原檔：`js/vendor/image-to-pixel.js`；抖色 adapter：`js/pixelate/dither/adapter.js`（Worker／Node 走與 vendor 相同的備援核，不呼叫 Lospec 網路 API）
+
+## sprite-lab
+
+- URL：https://github.com/boona13/sprite-lab
+- commit：`ed666b4d4d5f520056261c37e6b6a4a733d24b85`
+- 授權：MIT（Copyright (c) 2026 Sprite Lab contributors）
+- 我們移植 → `js/pixelate/clean/bg.js`：
+  - `src/core/analyzeBackground.ts` 的 `analyzeBackgroundFromRgba` / `borderHasCheckerPattern` / `borderIsSolidLight`
+  - `src/edgeCleanup.ts` 的 `detectCheckerColors` / `matchesChecker` / `foregroundAffinity` /
+    `isCheckerFringePixel` / `shouldExpandCheckerPixel` / `peelCheckerFringeInPlace` /
+    `removeCheckerboardInPlace` / `defringeInPlace`
+  - `src/core/chromaKey.ts` 的 `chromaKeyInPlace`（含 despill 與 `GREEN_KEY`）
+  - `src/core/floodFill.ts` 的 `floodFillRemoveBackground`（四角平均色、角落色差 < 24、容差 78）
+- 我們對上游的三處刻意差異（`js/pixelate/clean/bg.js` 檔頭有完整說明）：
+  1. 新增 `borderHasTwoToneNeutral()`。上游的棋盤判定寫死「白（max>225）+ 淺灰」，
+     認不出 ChatGPT 匯出的 128／190 中灰棋盤，會誤判成 solid 而只清掉一半背景。
+  2. 不移植 `refineEdgeMatteInPlace()`（反鋸齒 alpha matting）——本工具輸出 alpha 只有 0/255。
+  3. 不移植 `removeNeutralIslandsInPlace()`——其面積上限在 80×80 的像素圖上會吃掉白色高光。

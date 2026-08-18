@@ -1437,10 +1437,15 @@ PA.ui = (() => {
     cx.imageSmoothingEnabled = false;
     cx.clearRect(0, 0, im.w, im.h);
     cx.drawImage(im.cvs, 0, 0);
-    if (!pxGrid || !pxGrid.xs || !$('px-gridview').checked) return;
+    if (!pxGrid || !$('px-gridview').checked) return;
+    // 沒開自動吸附時 xs/ys 是 null（等距格線），就地從 phase + k*s 算出來畫，
+    // 算法跟 grid.js uniformBounds 一樣，畫出來的線就是實際的切法
+    const xs = pxGrid.xs || PA.pixelate.uniformBounds(pxGrid.phx, pxGrid.sx, pxGrid.nx);
+    const ys = pxGrid.ys || PA.pixelate.uniformBounds(pxGrid.phy, pxGrid.sy, pxGrid.ny);
+    if (!xs || !ys) return;
     // 線寬換算成「約 1 個顯示像素」，否則縮小顯示時會糊成一片粗線
     const disp = cv2.clientWidth || im.w;
-    const nx = pxGrid.nx || Math.max(1, pxGrid.xs.length - 1);
+    const nx = pxGrid.nx || Math.max(1, xs.length - 1);
     // 手機上大圖縮成一小塊時，86 條格線會疊成整片洋紅，看起來像預覽壞掉
     if (disp / nx < 4) return;
     cx.strokeStyle = 'rgba(255,60,255,.9)';
@@ -1450,22 +1455,22 @@ PA.ui = (() => {
       // 網格模式：格線逐帶彎曲，分段畫才是實際的切法
       const { xsB, ysB, nx, ny } = pxGrid.mesh;
       for (let j = 0; j < ny; j++) {
-        const y0 = pxGrid.ys[j], y1 = pxGrid.ys[j + 1];
+        const y0 = ys[j], y1 = ys[j + 1];
         for (let i = 0; i <= nx; i++) {
           const x = xsB[j * (nx + 1) + i];
           cx.moveTo(x, y0); cx.lineTo(x, y1);
         }
       }
       for (let i = 0; i < nx; i++) {
-        const x0 = pxGrid.xs[i], x1 = pxGrid.xs[i + 1];
+        const x0 = xs[i], x1 = xs[i + 1];
         for (let j = 0; j <= ny; j++) {
           const y = ysB[i * (ny + 1) + j];
           cx.moveTo(x0, y); cx.lineTo(x1, y);
         }
       }
     } else {
-      for (const x of pxGrid.xs) { cx.moveTo(x, 0); cx.lineTo(x, im.h); }
-      for (const y of pxGrid.ys) { cx.moveTo(0, y); cx.lineTo(im.w, y); }
+      for (const x of xs) { cx.moveTo(x, 0); cx.lineTo(x, im.h); }
+      for (const y of ys) { cx.moveTo(0, y); cx.lineTo(im.w, y); }
     }
     cx.stroke();
   }
@@ -1579,7 +1584,8 @@ PA.ui = (() => {
             if (d > wmax) wmax = d;
           }
         }
-      } else {
+      } else if (pxGrid.xs) {
+        // 只有開自動吸附（legacy）才會有逐格邊界；其他方法是等距格線，沒有格寬分布可言
         for (let i = 0; i < pxGrid.xs.length - 1; i++) {
           const d = pxGrid.xs[i + 1] - pxGrid.xs[i];
           if (d < wmin) wmin = d;
@@ -1593,8 +1599,12 @@ PA.ui = (() => {
         $('px-errline').innerHTML = `重建誤差 <b>${r.err.toFixed(2)}</b> ` +
           (r.err > 12 ? '<span class="bad">⚠ 偏高（&gt;12 需要調整）</span>'
                       : '<span class="good">✓ 良好</span>');
+        // 自動吸附只有 legacy 有，其他方法別叫使用者去關一個停用的選項
         $('px-warn').textContent = r.err > 12
-          ? '⚠ 誤差偏高，格線可能沒對齊 — 試著微調格線偏移或關閉自動吸附' : '';
+          ? (pxSnapWanted()
+              ? '⚠ 誤差偏高，格線可能沒對齊 — 試著微調格線偏移或關閉自動吸附'
+              : '⚠ 誤差偏高，格線可能沒對齊 — 試著換一個方法，或在進階區微調格數與偏移')
+          : '';
       }
       $('px-bginfo').textContent = r.cleared ? `已清 ${r.cleared.toLocaleString()} 格` : '';
     } catch (e) {

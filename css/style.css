@@ -624,6 +624,8 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
 #pxmodal #px-votes .px-bar > i { display: block; height: 100%; background: var(--accent); }
 #pxmodal #px-votes .warn { margin-right: 2px; }
 #pxmodal .px-dets { display: flex; flex-direction: column; gap: 2px; padding-top: var(--sp-2); }
+/* 特異性要壓過下面的 #pxmodal .pxgroup label（1,1,1），否則「目標寬度」在非照片路線也會常駐 */
+#pxmodal .pxgroup .px-photo-only,
 #pxmodal .px-photo-only { display: none; }
 #pxmodal.px-photo-mode .px-photo-only { display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-data); color: var(--fg-3); }
 #pxmodal.px-photo-mode .px-grid-only { display: none; }

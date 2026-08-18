@@ -225,7 +225,7 @@ PA.pixelate = PA.pixelate || {};
     const px = PA.pixelate.resample(rgba, w, h, g);
     // 重建誤差是診斷數字；調顏色上限 / 去背時格線沒變，呼叫端可傳 error:false 跳過
     const err = opts.error === false ? null : PA.pixelate.reconstructError(rgba, w, h, g, px);
-    const cleared = opts.removeBg ? PA.pixelate.removeBackground(px) : 0;
+    const cleared = opts.removeBg ? PA.pixelate.removeBackground(px, {}) : 0;
     const colours = opts.colours > 0 ? PA.pixelate.quantize(px, opts.colours) : PA.pixelate.countColours(px.rgba).size;
     return { px, err, cleared, colours };
   }
