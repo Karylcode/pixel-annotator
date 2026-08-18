@@ -604,6 +604,11 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
 .pxpane .px-src-only { display: none; }
 .pxpane:has(.pxview.showsrc) .px-src-only,
 .pxpane:has(.pxview.cmp) .px-src-only { display: flex; }
+/* 高度固定成 96vh，不要讓內容去撐。
+   本來是內容撐出來的：收合「進階」時側欄內容剛好差 8.5px 才碰到 96vh 上限，對話框就矮
+   8.5px，加上垂直置中，整個視窗還會上下位移 4.3px —— 展開／收合時看起來就會「跳一下」。 */
+#pxmodal .box.wide { height: 96vh; }
+
 /* 側欄自己捲：展開「進階」後內容會比對話框高，不自己捲的話會溢出去蓋掉底部按鈕 */
 .pxside {
   width: 320px; flex: none; display: flex; flex-direction: column; gap: var(--sp-4);
