@@ -17,6 +17,7 @@ const FILES = [
   'js/pixelate/detect/selfsim.js',
   'js/pixelate/detect/fft.js',
   'js/pixelate/detect/perfecter.js',
+  'js/pixelate/detect/hough.js',
   'js/pixelate/detect/runs.js',
   'js/pixelate/detect/arbitrate.js',
   'js/pixelate/sample/center-median.js',

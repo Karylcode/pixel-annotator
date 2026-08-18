@@ -12,6 +12,7 @@ importScripts(
   'pixelate/detect/selfsim.js',
   'pixelate/detect/fft.js',
   'pixelate/detect/perfecter.js',
+  'pixelate/detect/hough.js',
   'pixelate/detect/runs.js',
   'pixelate/detect/arbitrate.js',
   'pixelate/sample/center-median.js',

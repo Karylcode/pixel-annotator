@@ -451,7 +451,7 @@
             </table>
           </div>
           <div id="px-errline" class="pxinfo"></div>
-          <label class="chk px-grid-only"><input type="checkbox" id="px-snap" checked>自動吸附格線（建議）</label>
+          <label class="chk px-grid-only"><input type="checkbox" id="px-snap">自動吸附格線（本工具原版功能）</label>
           <div class="sub px-grid-only" id="px-spread"></div>
           <details id="px-adv">
             <summary>進階：格數 / 格寬 / 格線偏移</summary>
@@ -469,13 +469,14 @@
             </label>
             <div class="px-dets">
               <span class="sub">偵測器</span>
-              <label class="chk sm"><input type="checkbox" id="px-det-autocorr">自相關</label>
-              <label class="chk sm"><input type="checkbox" id="px-det-runlength">Run-length</label>
-              <label class="chk sm"><input type="checkbox" id="px-det-selfsim">自相似</label>
-              <label class="chk sm"><input type="checkbox" id="px-det-fft">FFT</label>
-              <label class="chk sm"><input type="checkbox" id="px-det-perfecter">perfecter</label>
-              <label class="chk sm"><input type="checkbox" id="px-det-runs">Runs</label>
-              <label class="chk sm"><input type="checkbox" id="px-det-legacy">原版</label>
+              <label class="chk sm" title="Pixel Art Fixer：自相關梳狀 − 反梳狀 + 次諧波抑制"><input type="checkbox" id="px-det-autocorr">自相關（Fixer）</label>
+              <label class="chk sm" title="Pixel Art Fixer：邊界距離 soft-GCD"><input type="checkbox" id="px-det-runlength">Run-length（Fixer）</label>
+              <label class="chk sm" title="Pixel Art Fixer：位移自相似 + 多諧波 t 統計"><input type="checkbox" id="px-det-selfsim">自相似（Fixer）</label>
+              <label class="chk sm" title="perfectPixel：FFT 主週期"><input type="checkbox" id="px-det-fft">FFT（perfectPixel）</label>
+              <label class="chk sm" title="pixel-perfecter：exact-NN + Canny 投影 + phase-fold + 對比評分"><input type="checkbox" id="px-det-perfecter">pixel-perfecter</label>
+              <label class="chk sm" title="proper-pixel-art：Canny → 閉合 → 軸向霍夫 → 修剪中位間距"><input type="checkbox" id="px-det-hough">霍夫（proper-pixel-art）</label>
+              <label class="chk sm" title="unfake.js：同色 run 長度"><input type="checkbox" id="px-det-runs">Runs（unfake.js）</label>
+              <label class="chk sm" title="本工具原版差分能量偵測"><input type="checkbox" id="px-det-legacy">legacy</label>
               <label class="chk sm"><input type="checkbox" id="px-precise">精確仲裁（慢）</label>
             </div>
             <div class="px-dets">
@@ -621,6 +622,7 @@
 <script src="js/pixelate/detect/selfsim.js"></script>
 <script src="js/pixelate/detect/fft.js"></script>
 <script src="js/pixelate/detect/perfecter.js"></script>
+<script src="js/pixelate/detect/hough.js"></script>
 <script src="js/pixelate/detect/runs.js"></script>
 <script src="js/pixelate/detect/arbitrate.js"></script>
 <script src="js/pixelate/sample/center-median.js"></script>

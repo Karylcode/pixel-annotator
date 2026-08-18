@@ -1213,6 +1213,7 @@ PA.ui = (() => {
   let pxProfiles = null, pxProfileIm = null, pxProfileRev = -1;   // 邊緣能量只跟點陣圖有關，依 (圖, 版本) 快取
   let pxAbort = false, pxBusy = false;
   const PX_K_DEFAULT = 48;   // 像素化的預設顏色上限（0 = 不減色）
+  const PX_DEFAULT = 'pixel-art-fixer';   // 預設方法
   const PX_PREFS_KEY = 'pixann.px';
   let pxVotes = [];
   let pxForceVoteId = null;
@@ -1236,19 +1237,20 @@ PA.ui = (() => {
     for (const p of PA.pixelate.presets || []) {
       const o = document.createElement('option');
       o.value = p.id;
-      o.textContent = p.label + (p.id === 'standard' ? '（預設）' : '');
+      o.textContent = p.label + (p.id === PX_DEFAULT ? '（預設）' : '');
       sel.appendChild(o);
     }
     const saved = pxReadPrefs();
-    const want = prev || (saved && saved.preset) || 'standard';
+    const want = prev || (saved && saved.preset) || PX_DEFAULT;
     if ([...sel.options].some(o => o.value === want)) sel.value = want;
-    else if ([...sel.options].some(o => o.value === 'standard')) sel.value = 'standard';
+    else if ([...sel.options].some(o => o.value === PX_DEFAULT)) sel.value = PX_DEFAULT;
+    else if (sel.options.length) sel.value = sel.options[0].value;
     pxSyncDetChecks();
   }
   function pxSyncDetChecks() {
     const p = (PA.pixelate.presets || []).find(x => x.id === $('px-method').value);
     const dets = (p && p.config && p.config.detectors) || [];
-    ['autocorr', 'runlength', 'selfsim', 'fft', 'perfecter', 'runs', 'legacy'].forEach(id => {
+    ['autocorr', 'runlength', 'selfsim', 'fft', 'perfecter', 'hough', 'runs', 'legacy'].forEach(id => {
       const el = $('px-det-' + id);
       if (el) el.checked = dets.indexOf(id) >= 0;
     });
@@ -1279,12 +1281,25 @@ PA.ui = (() => {
       ds.value = Math.round((s > 1 ? s : s * 100));
       ds.disabled = !dith || dith.value === 'none';
     }
+    const sn = $('px-snap');
+    if (sn) {
+      sn.checked = !!(p && p.config && p.config.snap);
+      // 只有原版有這個功能；其他方法自己就會算格線，吸附會蓋掉它們的結果
+      sn.disabled = !(p && p.id === 'legacy');
+      const lab = sn.closest('label');
+      if (lab) lab.title = sn.disabled
+        ? '這是本工具原版自己的功能，會覆寫其他演算法算出來的格線，所以只在 legacy 方法可用'
+        : '把等距格線逐條吸附到附近的邊緣，再逐帶微調成不等距網格';
+    }
     const tw = $('px-target-w');
     if (tw && p && p.config && p.config.targetWidth) tw.value = p.config.targetWidth;
-    pxModal().classList.toggle('px-photo-mode', $('px-method').value === 'photo');
+    // 指定寬度的方法（PixelOE／Image-to-Pixel）：沒有偵測器、靠 targetWidth
+    const widthMode = !!(p && p.config && p.config.targetWidth > 0 &&
+                         (!p.config.detectors || !p.config.detectors.length));
+    pxModal().classList.toggle('px-photo-mode', widthMode);
   }
   function pxReadDetectors() {
-    const ids = ['autocorr', 'runlength', 'selfsim', 'fft', 'perfecter', 'runs', 'legacy'];
+    const ids = ['autocorr', 'runlength', 'selfsim', 'fft', 'perfecter', 'hough', 'runs', 'legacy'];
     const on = ids.filter(id => { const el = $('px-det-' + id); return el && el.checked; });
     return on.length ? on : ['legacy'];
   }
@@ -1298,7 +1313,7 @@ PA.ui = (() => {
     return out;
   }
   function pxBuildConfig(extra) {
-    const presetId = $('px-method').value || 'standard';
+    const presetId = $('px-method').value || PX_DEFAULT;
     const p = (PA.pixelate.presets || []).find(x => x.id === presetId);
     const cfg = Object.assign({
       detectors: ['legacy'], sample: 'center-median', quant: 'oklab-kmeans',
@@ -1316,7 +1331,7 @@ PA.ui = (() => {
       cfg.detectors = pxReadDetectors();
       cfg.precise = !!($('px-precise') && $('px-precise').checked);
     }
-    if ($('px-precise') && $('px-method').value === 'precise') cfg.precise = $('px-precise').checked;
+    if ($('px-precise') && p && p.config && p.config.precise) cfg.precise = $('px-precise').checked;
     return cfg;
   }
   function pxShowMethodInfo(on) {
@@ -1388,14 +1403,23 @@ PA.ui = (() => {
 
   // 依目前參數重建格線邊界。「自動吸附格線」= 全圖逐條吸附 + 逐帶網格微調：
   // AI 在不同區域的局部格寬可以差很多（臉部 35px vs 全圖 26px），直線格線不夠。
+  // 「自動吸附格線」是本工具原版自己的功能（別的專案都沒有），會把偵測到的等距格線
+  // 逐條吸附到附近的邊緣、再逐帶微調成不等距網格。它會覆寫掉其他演算法算出來的格線，
+  // 所以只有在方法本身要求、或使用者在進階明確勾選時才套用。
+  function pxSnapWanted() {
+    const el = $('px-snap');
+    if (!el || el.disabled) return false;
+    return el.checked;
+  }
   function pxApplyBounds() {
     if (!pxGrid) return;
+    const snap = pxSnapWanted();
+    if (!snap) { pxGrid.xs = null; pxGrid.ys = null; pxGrid.mesh = null; return; }
     const prof = pxEnsureProfiles();
-    const snap = $('px-snap').checked;
-    const b = PA.pixelate.buildBounds(pxGrid, prof, snap);
+    const b = PA.pixelate.buildBounds(pxGrid, prof, true);
     pxGrid.xs = b.xs;
     pxGrid.ys = b.ys;
-    pxGrid.mesh = snap ? PA.pixelate.meshBounds(prof, b.xs, b.ys, pxGrid.sx) : null;
+    pxGrid.mesh = PA.pixelate.meshBounds(prof, b.xs, b.ys, pxGrid.sx);
   }
 
   // 原圖比顯示區小（本來就是原生像素圖）就用硬邊放大，否則會糊成一團；
@@ -1562,7 +1586,7 @@ PA.ui = (() => {
           if (d > wmax) wmax = d;
         }
       }
-      $('px-spread').textContent = $('px-snap').checked && Number.isFinite(wmin)
+      $('px-spread').textContent = pxSnapWanted() && Number.isFinite(wmin)
         ? `實際格寬 ${wmin.toFixed(0)}–${wmax.toFixed(0)}px` : '';
       $('px-outinfo').textContent = `${r.px.w}×${r.px.h} · ${r.colours} 色`;
       if (r.err != null) {
@@ -1644,8 +1668,19 @@ PA.ui = (() => {
     const isNative = !g;
     if (g) {
       pxGrid = g;
-      $('px-auto').innerHTML = `已自動偵測：<b>${g.nx}×${g.ny}</b>，格寬 ${g.sx.toFixed(1)}px`;
-      $('px-gridview').checked = true;
+      if (g.source === 'native') {
+        // 前置檢查認出「這本來就是原生像素圖」：1:1 不重取樣，格線畫出來只會整片洋紅
+        $('px-auto').innerHTML = `<b>這已經是原生像素圖</b>（${g.nx}×${g.ny}、${(g.meta && g.meta.colours) || '?'} 色），` +
+          '不需要還原格線；仍可減色 / 去背 / 抖色。';
+        $('px-gridview').checked = false;
+      } else if (g.source === 'exact-nn') {
+        $('px-auto').innerHTML = `這是<b>整數倍放大</b>的像素圖（每格 ${g.sx.toFixed(0)}×${g.sy.toFixed(0)} px），` +
+          `原始尺寸 <b>${g.nx}×${g.ny}</b>，可精確還原。`;
+        $('px-gridview').checked = true;
+      } else {
+        $('px-auto').innerHTML = `已自動偵測：<b>${g.nx}×${g.ny}</b>，格寬 ${g.sx.toFixed(1)}px`;
+        $('px-gridview').checked = true;
+      }
     } else {
       // 偵測不到週期性，最可能的解釋是「這本來就是原生像素圖，沒有被放大過」。
       // 這時候正確的答案是 1:1 不重取樣，而不是亂猜一個格數。
@@ -1681,7 +1716,9 @@ PA.ui = (() => {
                      mesh: snap ? PA.pixelate.meshBounds(prof, b.xs, b.ys, pxGrid.sx) : null };
         return PA.pixelate.callAsync('score', { rgba: im.rgba, w: im.w, h: im.h, grid: gg });
       };
-      $('px-snap').checked = (await errOf(true)) < (await errOf(false));
+      // 只有原版方法會自動決定要不要吸附；其他方法的格線由它們自己負責
+      if ($('px-method').value === 'legacy') $('px-snap').checked = (await errOf(true)) < (await errOf(false));
+      else $('px-snap').checked = false;
     } else $('px-snap').checked = false;
 
     pxNeedError = true;

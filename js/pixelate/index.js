@@ -33,54 +33,145 @@ PA.pixelate = PA.pixelate || {};
 
   PA.pixelate.presets = [
     {
-      id: 'fast',
-      label: '快速',
-      desc: '只用 run-length 偵測格寬，格心中位數取色。適合預覽。',
-      config: { detectors: ['runlength'], precise: false, sample: 'center-median', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg'], snap: false },
-    },
-    {
-      id: 'standard',
-      label: '標準',
-      desc: 'Pixel Art Fixer 三偵測器共識 + 兩階段重建。',
+      id: 'pixel-art-fixer',
+      label: 'Pixel Art Fixer',
+      desc: '三個獨立偵測器（自相關梳狀／run-length soft-GCD／位移自相似）取共識，'
+          + '再用兩階段重建上色（先用量化標籤投票決定每格屬於哪一區，再取該區原始像素的平均）。'
+          + '原專案 pixel-bench 宣稱 native 解析度精確還原 77%。',
       config: { detectors: ['autocorr', 'runlength', 'selfsim'], precise: false, sample: 'two-stage', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg'], snap: false },
     },
     {
-      id: 'precise',
-      label: '精確（慢）',
-      desc: '五偵測器 + 變異數對比／重建誤差仲裁。適合難圖。',
+      id: 'pixel-art-fixer-full',
+      label: 'Pixel Art Fixer（全偵測器 + 證據仲裁）',
+      desc: '上面三個再加 perfectPixel 的 FFT 與 pixel-perfecter，並開啟原專案 Stage 2 的'
+          + '變異數對比與 round-trip 重建誤差仲裁。最慢，給難圖用。',
       config: { detectors: ['autocorr', 'runlength', 'selfsim', 'fft', 'perfecter'], precise: true, sample: 'two-stage', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg'], snap: false },
     },
     {
-      id: 'unfake',
-      label: 'unfake 風格',
-      desc: 'run-length + 自相關偵測，眾數取色，補洞／去雜點／修鋸齒／alpha。',
-      config: { detectors: ['runs', 'autocorr'], precise: false, sample: 'dominant', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg', 'holes', 'specks', 'jaggies', 'alpha'], snap: false },
-    },
-    {
-      id: 'perfectpixel',
-      label: 'perfectPixel 風格',
-      desc: 'FFT 偵測主週期，格心中位數取色。',
+      id: 'perfectPixel',
+      label: 'perfectPixel',
+      desc: 'FFT 抓梯度剖面的主週期得格寬，再用邊緣精修對齊。整數倍放大時最快最準。',
       config: { detectors: ['fft'], precise: false, sample: 'center-median', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg'], snap: false },
     },
     {
-      id: 'perfecter',
-      label: 'pixel-perfecter 風格',
-      desc: 'exact-NN / Canny 投影 / 對比評分，眾數取色。',
+      id: 'pixel-perfecter',
+      label: 'pixel-perfecter',
+      desc: '四路子偵測：精確最近鄰檢查、Canny 投影、自相關、phase-fold 掃描，'
+          + '再用統一分數「格間對比 / √格內變異」挑，並用眾數取色。',
       config: { detectors: ['perfecter'], precise: false, sample: 'dominant', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg'], snap: false },
     },
     {
-      id: 'photo',
-      label: '照片轉像素',
-      desc: '不偵測格線。PixelOE 輪廓擴張 + 對比感知降採樣，目標寬度由使用者指定。',
+      id: 'proper-pixel-art',
+      label: 'proper-pixel-art',
+      desc: '幾何路線（與其他方法的頻域思路完全不同）：Canny 邊緣 → 形態學閉合 →'
+          + '軸向霍夫取線 → 分群 → 修剪中位間距。',
+      config: { detectors: ['hough'], precise: false, sample: 'dominant', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg'], snap: false },
+    },
+    {
+      id: 'unfake.js',
+      label: 'unfake.js',
+      desc: '同色 run 長度偵測 + 眾數取色，並套用它招牌的清理層：'
+          + '補洞、去雜點、修鋸齒、alpha 二值化。',
+      config: { detectors: ['runs', 'autocorr'], precise: false, sample: 'dominant', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg', 'holes', 'specks', 'jaggies', 'alpha'], snap: false },
+    },
+    {
+      id: 'spritegrid',
+      label: 'spritegrid',
+      desc: '格線用 Pixel Art Fixer 的共識，取色改用 Weiszfeld 幾何中位數：'
+          + '比逐通道中位數更抗離群，且吸附回格內既有顏色，不會冒出原圖沒有的色。',
+      config: { detectors: ['autocorr', 'runlength', 'selfsim'], precise: false, sample: 'geomedian', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg'], snap: false },
+    },
+    {
+      id: 'PixelOE',
+      label: 'PixelOE（照片／插畫轉像素）',
+      desc: '不偵測格線，由你指定目標寬度。降採樣前先做輪廓擴張（依局部亮度分布加權膨脹／侵蝕）'
+          + '保住 1px 細線，再做對比感知降採樣（LAB 空間，亮度取局部極值、色度取中位數）。',
       config: { detectors: [], precise: false, sample: 'pixeloe', quant: 'oklab-kmeans', k: 48, dither: 'none', ditherStrength: 0.5, clean: [], snap: false, targetWidth: 64 },
     },
     {
+      id: 'Image-to-Pixel',
+      label: 'Image-to-Pixel（指定寬度 + 抖色）',
+      desc: '不偵測格線，由你指定目標寬度；減色後套用抖色（預設 Floyd–Steinberg，可換 Bayer／Ordered／Atkinson）。',
+      config: { detectors: [], precise: false, sample: 'center-median', quant: 'oklab-kmeans', k: 32, dither: 'fs', ditherStrength: 0.5, clean: [], snap: false, targetWidth: 64 },
+    },
+    {
       id: 'legacy',
-      label: '原版',
-      desc: '現有差分能量偵測 + 格心中位數取色 + OKLab 減色。行為與重寫前相同。',
-      config: { detectors: ['legacy'], precise: false, sample: 'center-median', quant: 'oklab-kmeans', k: 48, dither: 'none', ditherStrength: 0.5, clean: ['bg'], snap: false, legacyPhase: true },
+      label: 'legacy（本工具原版）',
+      desc: '本工具原本的差分能量偵測 + 格心中位數取色。保留作為回歸基準，輸出與重寫前逐位相同。',
+      config: { detectors: ['legacy'], precise: false, sample: 'center-median', quant: 'oklab-kmeans', k: 48, dither: 'none', ditherStrength: 0.5, clean: ['bg'], snap: false, legacyPhase: true, detectNative: false },
     },
   ];
+
+  /* ---------- 原生／整數倍前置檢查 ----------
+     手繪像素圖（本來就是 1:1）與「整數倍最近鄰放大」這兩種輸入，用頻域偵測器反而會出錯：
+     實測 100×100 的手繪像素圖被各方法降成 50×50／25×25／2×2，等於毀掉作品。
+     這兩種輸入有非常乾淨的特徵，先判掉再說（pixel-perfecter 的 exact-NN 檢查即此想法）：
+       乾淨像素圖 = 顏色數少 且 幾乎沒有反鋸齒的中間色
+       其中 exact-NN ≥ 2 → 就是整數倍放大，直接用它
+             exact-NN = 1 → 已經是原生，不要重取樣
+     AI 生成圖（數萬色、2–3% 中間色）不會命中這條，照常走偵測器。 */
+  const CLEAN_MAX_COLOURS = 512;   // 超過就不是「乾淨像素圖」
+  const CLEAN_MAX_MIDTONE = 0.02;  // 相鄰像素差落在 (8,64) 的比例上限（反鋸齒指標）
+  const NATIVE_MAX_SIDE = 1024;    // 原生判定後 nx=w，太大就不套用（格數上限 512）
+
+  function cleanArtStats(rgba, w, h) {
+    const seen = new Set();
+    for (let i = 0; i < w * h; i++) {
+      const p = i * 4;
+      seen.add(((rgba[p] << 24) | (rgba[p + 1] << 16) | (rgba[p + 2] << 8) | rgba[p + 3]) >>> 0);
+      if (seen.size > CLEAN_MAX_COLOURS) return { clean: false };
+    }
+    let mid = 0, tot = 0;
+    for (let y = 0; y < h; y++) {
+      for (let x = 1; x < w; x++) {
+        const p = (y * w + x) * 4, q = p - 4;
+        const d = Math.abs(rgba[p] - rgba[q]) + Math.abs(rgba[p + 1] - rgba[q + 1]) + Math.abs(rgba[p + 2] - rgba[q + 2]);
+        tot++;
+        if (d > 8 && d < 64) mid++;
+      }
+    }
+    return { clean: tot === 0 || (mid / tot) <= CLEAN_MAX_MIDTONE, colours: seen.size, midRatio: tot ? mid / tot : 0 };
+  }
+
+  // 最大的 s：每個 s×s 區塊內像素完全相同（1 = 沒有被整數倍放大過）
+  function exactUpscale(rgba, w, h) {
+    let best = 1;
+    const cap = Math.min(64, w, h);
+    for (let s = 2; s <= cap; s++) {
+      if (w % s || h % s) continue;
+      let ok = true;
+      for (let by = 0; by < h / s && ok; by++) {
+        for (let bx = 0; bx < w / s && ok; bx++) {
+          const p0 = ((by * s) * w + bx * s) * 4;
+          for (let y = 0; y < s && ok; y++) {
+            for (let x = 0; x < s && ok; x++) {
+              const p = ((by * s + y) * w + bx * s + x) * 4;
+              if (rgba[p] !== rgba[p0] || rgba[p + 1] !== rgba[p0 + 1] ||
+                  rgba[p + 2] !== rgba[p0 + 2] || rgba[p + 3] !== rgba[p0 + 3]) ok = false;
+            }
+          }
+        }
+      }
+      if (ok) best = s;
+    }
+    return best;
+  }
+
+  // 回傳 Grid（整數倍或原生）或 null（交給偵測器）
+  function nativeOrExact(rgba, w, h) {
+    const st = cleanArtStats(rgba, w, h);
+    if (!st.clean) return null;
+    const s = exactUpscale(rgba, w, h);
+    if (s >= 2) {
+      return { sx: s, sy: s, phx: 0, phy: 0, nx: Math.round(w / s), ny: Math.round(h / s),
+               scoreX: 1, scoreY: 1, source: 'exact-nn', native: false,
+               meta: { colours: st.colours, midRatio: st.midRatio } };
+    }
+    if (w > NATIVE_MAX_SIDE || h > NATIVE_MAX_SIDE) return null;
+    return { sx: 1, sy: 1, phx: 0, phy: 0, nx: w, ny: h,
+             scoreX: 1, scoreY: 1, source: 'native', native: true,
+             meta: { colours: st.colours, midRatio: st.midRatio } };
+  }
 
   // 相位正規化：偵測器回報的相位是「第一條格線的位置」，慣例上落在 [0, s)。
   // 但圖片左緣本身就是第 0 格的邊界 —— 相位 = s − 0.5 其實等於「第一條線在 −0.5」，
@@ -94,7 +185,7 @@ PA.pixelate = PA.pixelate || {};
     return p;
   }
   function normalizeGrid(g, w, h) {
-    if (!g || g.source === 'legacy' || g.mesh || g.xs || g.ys) return g;   // mesh / 不等距線位置由偵測器負責
+    if (!g || g.source === 'legacy' || g.source === 'native' || g.source === 'exact-nn' || g.mesh || g.xs || g.ys) return g;   // mesh / 不等距線位置由偵測器負責
     const phx = normPhase(g.phx, g.sx), phy = normPhase(g.phy, g.sy);
     const nx = Math.max(1, Math.min(512, Math.round((w - phx) / g.sx)));
     const ny = Math.max(1, Math.min(512, Math.round((h - phy) / g.sy)));
@@ -150,6 +241,17 @@ PA.pixelate = PA.pixelate || {};
 
     let votes = [];
     let grid = config.forceGrid || null;
+
+    // 乾淨的像素圖（原生或整數倍放大）先判掉，不讓頻域偵測器把作品毀掉
+    if (!grid && config.detectNative !== false && config.detectors && config.detectors.length) {
+      const pre = nativeOrExact(rgba, w, h);
+      if (pre) {
+        grid = pre;
+        votes = [{ id: pre.native ? 'native' : 'exact-nn', sx: pre.sx, sy: pre.sy, phx: 0, phy: 0,
+                   score: 1, ms: 0, meta: { nx: pre.nx, ny: pre.ny } }];
+        config = Object.assign({}, config, { detectors: [] });
+      }
+    }
 
     if (!grid && config.detectors && config.detectors.length) {
       const ids = config.detectors;
@@ -282,6 +384,7 @@ PA.pixelate = PA.pixelate || {};
   }
 
   PA.pixelate.voteToGrid = voteToGrid;
+  PA.pixelate.nativeOrExact = nativeOrExact;
   PA.pixelate.normalizeGrid = normalizeGrid;
   PA.pixelate.normPhase = normPhase;
   PA.pixelate.nativeGrid = nativeGrid;

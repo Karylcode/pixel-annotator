@@ -6,6 +6,8 @@ _舊版前端備份/
 代碼審查報告.md
 UIUX修改設計文件.md
 交接文件.md
+像素化重寫計畫.md
+像素化重寫實作指示.md
 
 # 作業系統 / 編輯器
 .DS_Store
@@ -14,3 +16,4 @@ desktop.ini
 *.swp
 .vscode/
 .idea/
+_testimg/
