@@ -1214,7 +1214,7 @@ PA.ui = (() => {
   let pxProfiles = null, pxProfileIm = null, pxProfileRev = -1;   // 邊緣能量只跟點陣圖有關，依 (圖, 版本) 快取
   let pxAbort = false, pxBusy = false;
   const PX_K_DEFAULT = 48;   // 像素化的預設顏色上限（0 = 不減色）
-  const PX_DEFAULT = 'pixel-art-fixer';   // 預設方法
+  const PX_DEFAULT = 'pixel-perfecter';   // 預設方法（四路幾何偵測）
   const PX_PREFS_KEY = 'pixann.px';
   let pxVotes = [];
   let pxForceVoteId = null;
