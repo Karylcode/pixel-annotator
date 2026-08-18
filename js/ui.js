@@ -1430,6 +1430,10 @@ PA.ui = (() => {
 
   function pxDrawSource() {
     const cv2 = $('px-src'), im = store.img();
+    // 預覽方框跟著原圖的長寬比，非正方形的圖才不會左右（或上下）留一大片空白。
+    // 設在 .pxpane 上，比對拉條是 .pxview 的兄弟節點，也要吃得到這個變數。
+    const pane = pxModal().querySelector('.pxpane');
+    if (pane) pane.style.setProperty('--px-ar', (im.w / im.h).toFixed(4));
     // 指派 width/height 一定會重配 backing store（即使值沒變）；只在尺寸真的變了才設
     if (cv2.width !== im.w || cv2.height !== im.h) { cv2.width = im.w; cv2.height = im.h; }
     pxSmoothing(cv2, im);

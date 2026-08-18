@@ -553,14 +553,23 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
 #px-srcinfo { color: var(--fg-2); font-size: var(--fs-sm); }
 .pxmid { display: flex; gap: var(--sp-4); flex: 1; min-height: 0; }
 /* 預覽只有一格，置中；原圖與結果疊在同一個位置 */
-/* 預覽上限：除了佔螢幕比例，還要扣掉標題列 / 來源列 / 拉條 / 底部按鈕這些固定高度，
-   否則矮螢幕（例如 1280×560）上預覽會長到蓋住底部按鈕 */
-.pxpane { --pxview-max: min(64vh, calc(100vh - 250px)); flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+/* 預覽高度上限 = 對話框高度（96vh）扣掉固定框架 216px：外框內距、標題列、來源列、
+   底部按鈕、預覽自己的標題列與比對拉條。這個 216 是量出來的，三種螢幕高度都一致。
+   拉條收起時其實還多 24px，但故意不拿來用 —— 勾/取消比對時預覽尺寸才不會跳動。
+   --px-ar 由 ui.js 依原圖長寬比設定，方框跟著圖形狀走，非正方形的圖就不會左右留白。 */
+.pxpane {
+  --pxview-max: calc(96vh - 216px); --px-ar: 1;
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2);
+}
 .pxpanehead { display: flex; align-items: center; gap: var(--sp-2); min-height: 22px; }
 .pxview { display: flex; justify-content: center; }
-.pxstack { position: relative; --split: 50%; width: min(100%, var(--pxview-max)); }
+/* 高度吃到 --pxview-max 為止，寬度由長寬比推出來，太寬就退回面板寬度 */
+.pxstack {
+  position: relative; --split: 50%;
+  width: min(100%, calc(var(--pxview-max) * var(--px-ar))); aspect-ratio: var(--px-ar);
+}
 .pxpane canvas {
-  display: block; width: 100%; aspect-ratio: 1; max-height: var(--pxview-max); object-fit: contain;
+  display: block; width: 100%; height: 100%; object-fit: contain;
   border: 1px solid var(--line-1); border-radius: var(--r-md);
   background: repeating-conic-gradient(var(--checker-a) 0 25%, var(--checker-b) 0 50%) 0 0 / 16px 16px;
 }
@@ -589,8 +598,8 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
 }
 .pxview.cmp .pxdiv .pxlab-src { right: var(--sp-1); }
 .pxview.cmp .pxdiv .pxlab-out { left: var(--sp-1); }
-/* 拉條對齊預覽，不要橫跨整個面板 */
-#px-split { width: min(100%, var(--pxview-max)); margin-inline: auto; }
+/* 拉條對齊預覽，不要橫跨整個面板（寬度算式跟 .pxstack 一致） */
+#px-split { width: min(100%, calc(var(--pxview-max) * var(--px-ar))); margin-inline: auto; }
 /* 「顯示格線」只對原圖有意義，畫面上沒有原圖時就收起來 */
 .pxpane .px-src-only { display: none; }
 .pxpane:has(.pxview.showsrc) .px-src-only,
@@ -599,6 +608,8 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
 .pxside {
   width: 320px; flex: none; display: flex; flex-direction: column; gap: var(--sp-4);
   min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: var(--sp-1);
+  /* 捲軸空間永遠保留：否則展開「進階」時捲軸一出現，欄位寬度會整排縮 10px */
+  scrollbar-gutter: stable;
 }
 .pxgroup { display: flex; flex-direction: column; gap: var(--sp-2); }
 .pxinfo { font-size: var(--fs-sm); color: var(--fg-2); line-height: 1.6; }
@@ -881,7 +892,7 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
   .keygrid { grid-template-columns: 1fr 1fr; }
   .pxmid { flex-direction: column; }
   /* 直排時改成整個 .pxmid 捲（見下面 #pxmodal .pxmid），側欄不要再自己捲一層 */
-  .pxside { width: auto; overflow-y: visible; padding-right: 0; }
+  .pxside { width: auto; overflow-y: visible; padding-right: 0; scrollbar-gutter: auto; }
   .dfoot { flex-wrap: wrap; }
 
   /* 像素化：iOS Safari 對 flex:1 + overflow 會算不出高度，整塊被工具列吃掉。
