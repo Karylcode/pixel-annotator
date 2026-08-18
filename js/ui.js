@@ -1230,15 +1230,48 @@ PA.ui = (() => {
   }
   function pxFillMethods() {
     const sel = $('px-method');
-    if (!sel || sel.options.length) return;
+    if (!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = '';
     for (const p of PA.pixelate.presets || []) {
       const o = document.createElement('option');
       o.value = p.id;
-      o.textContent = p.label;
+      o.textContent = p.label + (p.id === 'standard' ? '（預設）' : '');
       sel.appendChild(o);
     }
     const saved = pxReadPrefs();
-    if (saved && saved.preset && [...sel.options].some(o => o.value === saved.preset)) sel.value = saved.preset;
+    const want = prev || (saved && saved.preset) || 'standard';
+    if ([...sel.options].some(o => o.value === want)) sel.value = want;
+    else if ([...sel.options].some(o => o.value === 'standard')) sel.value = 'standard';
+    pxSyncDetChecks();
+  }
+  function pxSyncDetChecks() {
+    const p = (PA.pixelate.presets || []).find(x => x.id === $('px-method').value);
+    const dets = (p && p.config && p.config.detectors) || [];
+    ['autocorr', 'runlength', 'selfsim', 'legacy'].forEach(id => {
+      const el = $('px-det-' + id);
+      if (el) el.checked = dets.indexOf(id) >= 0;
+    });
+    const pr = $('px-precise');
+    if (pr) pr.checked = !!(p && p.config && p.config.precise);
+  }
+  function pxReadDetectors() {
+    const ids = ['autocorr', 'runlength', 'selfsim', 'legacy'];
+    const on = ids.filter(id => { const el = $('px-det-' + id); return el && el.checked; });
+    return on.length ? on : ['legacy'];
+  }
+  function pxBuildConfig(extra) {
+    const presetId = $('px-method').value || 'standard';
+    const p = (PA.pixelate.presets || []).find(x => x.id === presetId);
+    const cfg = Object.assign({
+      detectors: ['legacy'], sample: 'center-median', quant: 'oklab-kmeans',
+      k: 0, dither: 'none', clean: [], snap: false, precise: false, error: false,
+    }, p && p.config, extra || {});
+    if ($('px-method').value === 'custom') {
+      cfg.detectors = pxReadDetectors();
+      cfg.precise = !!($('px-precise') && $('px-precise').checked);
+    }
+    return cfg;
   }
   function pxShowMethodInfo(on) {
     const pop = $('px-method-pop');
@@ -1516,15 +1549,28 @@ PA.ui = (() => {
     $('px-errline').textContent = '';
     pxVotes = [];
     pxForceVoteId = null;
-    pxRenderVotes([{ id: $('px-method').value || 'legacy', status: '執行中', score: 0 }], null);
+    const cfg = pxBuildConfig({ k: 0, clean: [], error: false, snap: false });
+    pxRenderVotes((cfg.detectors || []).map(id => ({ id, status: '等待', score: 0 })), null);
 
-    const g = await PA.pixelate.callAsync('detect', { rgba: im.rgba, w: im.w, h: im.h }, {
-      onProgress: f => { $('px-pfill').style.width = Math.round(f * 100) + '%'; },
+    const r = await PA.pixelate.callAsync('pipeline', { rgba: im.rgba, w: im.w, h: im.h, config: cfg }, {
+      onProgress: (f, info) => {
+        $('px-pfill').style.width = Math.round(f * 100) + '%';
+        if (info && info.detectorId) {
+          const row = { id: info.detectorId, status: '執行中', score: 0 };
+          const list = (pxVotes || []).slice();
+          const i = list.findIndex(v => v && v.id === info.detectorId);
+          if (i >= 0) list[i] = Object.assign({}, list[i], row);
+          else list.push(row);
+          pxRenderVotes(list, null);
+        }
+      },
       cancelled: () => pxAbort,
     });
     pxSetBusy(false);
     if (pxAbort) { $('px-auto').textContent = '已取消偵測'; return; }
+    if (r == null && !pxAbort) { $('px-warn').textContent = '偵測失敗'; return; }
 
+    const g = r && r.grid;
     const isNative = !g;
     if (g) {
       pxGrid = g;
@@ -1539,14 +1585,10 @@ PA.ui = (() => {
       $('px-gridview').checked = false;   // 1:1 時格線沒意義，預設關，免得整片洋紅
     }
     pxFill(pxGrid);
-    if (g) {
-      pxVotes = [{
-        id: 'legacy', label: '原版',
-        sx: g.sx, sy: g.sy, phx: g.phx, phy: g.phy, score: 1,
-        meta: { nx: g.nx, ny: g.ny, scoreX: g.scoreX, scoreY: g.scoreY },
-        status: '完成',
-      }];
-    } else pxVotes = [];
+    pxVotes = (r && r.votes) ? r.votes.filter(Boolean).map(v => {
+      const def = PA.pixelate.get('detect', v.id);
+      return Object.assign({}, v, { label: def ? def.label : v.id, status: '完成' });
+    }) : [];
     pxRenderVotes(pxVotes, null);
 
     // 顏色上限的上限 = 實際色數；預設 48（跟調色盤一頁的格數一致），但圖沒那麼多色就不用減
@@ -2641,10 +2683,24 @@ PA.ui = (() => {
     $('px-ok').onclick = applyPixelate;
     $('px-redetect').onclick = pxDetect;
     pxFillMethods();
-    $('px-method').onchange = () => { pxSavePrefs(); pxDetect(); };
+    $('px-method').onchange = () => { pxSyncDetChecks(); pxSavePrefs(); pxDetect(); };
     $('px-method-info').onmouseenter = () => pxShowMethodInfo(true);
     $('px-method-info').onmouseleave = () => pxShowMethodInfo(false);
     $('px-method-info').onclick = e => { e.preventDefault(); pxShowMethodInfo($('px-method-pop').classList.contains('hide')); };
+    ['px-det-autocorr', 'px-det-runlength', 'px-det-selfsim', 'px-det-legacy', 'px-precise'].forEach(id => {
+      const el = $(id);
+      if (!el) return;
+      el.onchange = () => {
+        if (!$('px-method').querySelector('option[value=custom]')) {
+          const o = document.createElement('option');
+          o.value = 'custom'; o.textContent = '自訂…';
+          $('px-method').appendChild(o);
+        }
+        $('px-method').value = 'custom';
+        pxSavePrefs();
+        pxDetect();
+      };
+    });
     ['px-w', 'px-h'].forEach(id => { $(id).oninput = () => pxOnEdit('count'); });
     ['px-sx', 'px-sy', 'px-phx', 'px-phy'].forEach(id => { $(id).oninput = () => pxOnEdit('size'); });
     $('px-k').oninput = () => { $('px-k-range').value = Math.min(+$('px-k-range').max, Math.max(0, +$('px-k').value || 0)); pxRecomputeSoon(); };

@@ -623,6 +623,7 @@ body.strip-closed #strip { padding: 2px var(--sp-3); }
 #pxmodal #px-votes .px-bar { display: block; height: 4px; width: 48px; background: var(--surface-3); border-radius: 2px; overflow: hidden; }
 #pxmodal #px-votes .px-bar > i { display: block; height: 100%; background: var(--accent); }
 #pxmodal #px-votes .warn { margin-right: 2px; }
+#pxmodal .px-dets { display: flex; flex-direction: column; gap: 2px; padding-top: var(--sp-2); }
 
 /* ═══ Toast v2：右下堆疊、語意色條、動作鈕 ═══ */
 #toasts {

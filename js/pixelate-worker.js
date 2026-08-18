@@ -2,8 +2,13 @@
 importScripts(
   'pixelate/lib/colour.js',
   'pixelate/lib/profile.js',
+  'pixelate/lib/fft.js',
   'pixelate/grid.js',
   'pixelate/detect/legacy.js',
+  'pixelate/detect/autocorr.js',
+  'pixelate/detect/runlength.js',
+  'pixelate/detect/selfsim.js',
+  'pixelate/detect/arbitrate.js',
   'pixelate/sample/center-median.js',
   'pixelate/quant/oklab-kmeans.js',
   'pixelate/clean/bg.js',

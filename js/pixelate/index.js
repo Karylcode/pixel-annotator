@@ -33,20 +33,22 @@ PA.pixelate = PA.pixelate || {};
 
   PA.pixelate.presets = [
     {
+      id: 'fast',
+      label: '快速',
+      desc: '只用 run-length 偵測格寬，格心中位數取色。適合預覽。',
+      config: { detectors: ['runlength'], precise: false, sample: 'center-median', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg'], snap: false },
+    },
+    {
+      id: 'standard',
+      label: '標準',
+      desc: 'Pixel Art Fixer 三偵測器共識（自相關、run-length、自相似）+ 兩階段重建（P3 起）。',
+      config: { detectors: ['autocorr', 'runlength', 'selfsim'], precise: false, sample: 'center-median', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg'], snap: false },
+    },
+    {
       id: 'legacy',
       label: '原版',
       desc: '現有差分能量偵測 + 格心中位數取色 + OKLab 減色。行為與重寫前相同。',
-      config: {
-        detectors: ['legacy'],
-        precise: false,
-        sample: 'center-median',
-        quant: 'oklab-kmeans',
-        k: 48,
-        dither: 'none',
-        ditherStrength: 0.5,
-        clean: ['bg'],
-        snap: false,
-      },
+      config: { detectors: ['legacy'], precise: false, sample: 'center-median', quant: 'oklab-kmeans', k: 48, dither: 'none', ditherStrength: 0.5, clean: ['bg'], snap: false },
     },
   ];
 
