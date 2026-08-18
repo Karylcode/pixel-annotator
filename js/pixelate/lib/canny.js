@@ -1,5 +1,5 @@
 /* pixelate/lib/canny.js — gaussian → sobel → NMS → 遲滯門檻。 */
-const PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
+var PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
 PA_ROOT.PA = PA_ROOT.PA || {};
 PA.pixelate = PA.pixelate || {};
 PA.pixelate.lib = PA.pixelate.lib || {};

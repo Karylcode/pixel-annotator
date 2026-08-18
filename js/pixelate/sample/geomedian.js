@@ -3,7 +3,7 @@
    https://github.com/marksverdhei/spritegrid
    commit 64ab6f38b914d8e4bc7db681a541c898b876a1b1  MIT
    格內 RGB 幾何中位數，再吸附到格內實際存在的最近像素色。 */
-const PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
+var PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
 PA_ROOT.PA = PA_ROOT.PA || {};
 PA.pixelate = PA.pixelate || {};
 

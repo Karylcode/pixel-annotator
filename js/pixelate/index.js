@@ -1,6 +1,6 @@
 /* pixelate/index.js — 註冊表、預設組合、runPipeline、callAsync。
    純運算掛在 PA.pixelate；主執行緒另見檔尾 callAsync。 */
-const PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
+var PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
 PA_ROOT.PA = PA_ROOT.PA || {};
 PA.pixelate = PA.pixelate || {};
 
@@ -42,13 +42,13 @@ PA.pixelate = PA.pixelate || {};
       id: 'standard',
       label: '標準',
       desc: 'Pixel Art Fixer 三偵測器共識 + 兩階段重建。',
-      config: { detectors: ['autocorr', 'runlength', 'selfsim'], precise: false, sample: 'two-stage', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg', 'specks'], snap: false },
+      config: { detectors: ['autocorr', 'runlength', 'selfsim'], precise: false, sample: 'two-stage', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg'], snap: false },
     },
     {
       id: 'precise',
       label: '精確（慢）',
       desc: '五偵測器 + 變異數對比／重建誤差仲裁。適合難圖。',
-      config: { detectors: ['autocorr', 'runlength', 'selfsim', 'fft', 'perfecter'], precise: true, sample: 'two-stage', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg', 'specks', 'jaggies'], snap: false },
+      config: { detectors: ['autocorr', 'runlength', 'selfsim', 'fft', 'perfecter'], precise: true, sample: 'two-stage', quant: 'oklab-kmeans', k: 48, dither: 'none', clean: ['bg'], snap: false },
     },
     {
       id: 'unfake',
@@ -78,15 +78,35 @@ PA.pixelate = PA.pixelate || {};
       id: 'legacy',
       label: '原版',
       desc: '現有差分能量偵測 + 格心中位數取色 + OKLab 減色。行為與重寫前相同。',
-      config: { detectors: ['legacy'], precise: false, sample: 'center-median', quant: 'oklab-kmeans', k: 48, dither: 'none', ditherStrength: 0.5, clean: ['bg'], snap: false },
+      config: { detectors: ['legacy'], precise: false, sample: 'center-median', quant: 'oklab-kmeans', k: 48, dither: 'none', ditherStrength: 0.5, clean: ['bg'], snap: false, legacyPhase: true },
     },
   ];
 
+  // 相位正規化：偵測器回報的相位是「第一條格線的位置」，慣例上落在 [0, s)。
+  // 但圖片左緣本身就是第 0 格的邊界 —— 相位 = s − 0.5 其實等於「第一條線在 −0.5」，
+  // 若照 [0, s) 算格數會少算一格（384px / 16 = 24 格會變成 23）。所以一律把相位折到
+  // [−s/2, s/2)：離左緣最近的那條線當第一條，格數 = round((w − phase) / s)。
+  // legacy 預設保留舊行為（不正規化），輸出才能與重寫前逐位相同。
+  function normPhase(ph, s) {
+    if (!(s > 0) || !Number.isFinite(ph)) return 0;
+    let p = ((ph % s) + s) % s;
+    if (p >= s / 2) p -= s;
+    return p;
+  }
+  function normalizeGrid(g, w, h) {
+    if (!g || g.source === 'legacy' || g.mesh || g.xs || g.ys) return g;   // mesh / 不等距線位置由偵測器負責
+    const phx = normPhase(g.phx, g.sx), phy = normPhase(g.phy, g.sy);
+    const nx = Math.max(1, Math.min(512, Math.round((w - phx) / g.sx)));
+    const ny = Math.max(1, Math.min(512, Math.round((h - phy) / g.sy)));
+    return Object.assign(g, { phx, phy, nx, ny });
+  }
+
   function voteToGrid(vote, w, h, votes) {
-    if (!vote) return null;
+    if (!vote || !(vote.sx > 0) || !(vote.sy > 0)) return null;
     const meta = vote.meta || {};
     const sx = vote.sx, sy = vote.sy;
-    const phx = vote.phx || 0, phy = vote.phy || 0;
+    let phx = vote.phx || 0, phy = vote.phy || 0;
+    if (vote.id !== 'legacy' && !meta.mesh && !meta.xs && !meta.ys) { phx = normPhase(phx, sx); phy = normPhase(phy, sy); }
     const nx = meta.nx != null ? meta.nx : Math.max(1, Math.min(512, Math.round((w - phx) / sx)));
     const ny = meta.ny != null ? meta.ny : Math.max(1, Math.min(512, Math.round((h - phy) / sy)));
     const g = {
@@ -165,6 +185,7 @@ PA.pixelate = PA.pixelate || {};
     } else {
       votes = grid.votes || votes;
     }
+    if (grid && config.legacyPhase !== true) grid = normalizeGrid(grid, w, h);
 
     if (cancelled()) return null;
     if (!grid && (config.targetWidth > 0 || config.sample === 'pixeloe')) {
@@ -261,6 +282,8 @@ PA.pixelate = PA.pixelate || {};
   }
 
   PA.pixelate.voteToGrid = voteToGrid;
+  PA.pixelate.normalizeGrid = normalizeGrid;
+  PA.pixelate.normPhase = normPhase;
   PA.pixelate.nativeGrid = nativeGrid;
   PA.pixelate.run = run;
   PA.pixelate.runPipeline = runPipeline;

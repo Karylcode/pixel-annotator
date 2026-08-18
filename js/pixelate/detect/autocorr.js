@@ -2,7 +2,7 @@
    移植自 Pixel Art Fixer python/pixelfixer/autocorr.py
    commit ef376e57e1c272633ca2dbf5f29ec3fcf6596465  MIT
    對應：band_acf / comb_score / 次諧波抑制 / refine_step_acf。未移植 cepstrum。 */
-const PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
+var PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
 PA_ROOT.PA = PA_ROOT.PA || {};
 PA.pixelate = PA.pixelate || {};
 

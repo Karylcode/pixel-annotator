@@ -1,5 +1,5 @@
 /* pixelate/lib/morph.js — Uint8Array 標籤圖上的 3×3 形態學。 */
-const PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
+var PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
 PA_ROOT.PA = PA_ROOT.PA || {};
 PA.pixelate = PA.pixelate || {};
 PA.pixelate.lib = PA.pixelate.lib || {};

@@ -2,7 +2,7 @@
    移植自 Pixel Art Fixer python/pixelfixer/reconstruct.py two_stage_pack
    commit ef376e57e1c272633ca2dbf5f29ec3fcf6596465  MIT
    結構用量化標籤投票，顏色取原圖像素的中心加權平均。 */
-const PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
+var PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
 PA_ROOT.PA = PA_ROOT.PA || {};
 PA.pixelate = PA.pixelate || {};
 

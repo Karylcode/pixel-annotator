@@ -1,5 +1,5 @@
 /* pixelate/quant/oklab-kmeans.js — 現有 quantize 原封搬入（toOklab 改由 lib/colour.js 提供）。 */
-const PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
+var PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
 PA_ROOT.PA = PA_ROOT.PA || {};
 PA.pixelate = PA.pixelate || {};
 

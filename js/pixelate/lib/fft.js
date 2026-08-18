@@ -1,5 +1,5 @@
 /* pixelate/lib/fft.js — 自寫實數 radix-2 FFT，供 autocorr / fft 偵測器共用。 */
-const PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
+var PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
 PA_ROOT.PA = PA_ROOT.PA || {};
 PA.pixelate = PA.pixelate || {};
 PA.pixelate.lib = PA.pixelate.lib || {};

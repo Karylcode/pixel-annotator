@@ -1339,7 +1339,7 @@ PA.ui = (() => {
       const nx = v.meta && v.meta.nx != null ? v.meta.nx : (v.nx != null ? v.nx : (isCons && pxGrid ? pxGrid.nx : '—'));
       const ny = v.meta && v.meta.ny != null ? v.meta.ny : (v.ny != null ? v.ny : (isCons && pxGrid ? pxGrid.ny : '—'));
       const sx = v.sx != null ? Number(v.sx).toFixed(2) : (isCons && pxGrid ? pxGrid.sx.toFixed(2) : '—');
-      const score = v.score == null ? 0 : v.score;
+      const score = Number.isFinite(+v.score) ? +v.score : 0;
       const ms = v.ms == null ? '' : Math.round(v.ms);
       const warn = !isCons && consNx != null && nx !== '—' && Math.abs(nx - consNx) > 1;
       const using = (usedId && v.id === usedId) || (isCons && !usedId);

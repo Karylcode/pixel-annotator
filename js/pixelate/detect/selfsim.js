@@ -2,7 +2,7 @@
    移植自 Pixel Art Fixer python/pixelfixer/selfsim.py
    commit ef376e57e1c272633ca2dbf5f29ec3fcf6596465  MIT
    對應：|grad| / 模糊|grad| / |Laplacian| 位移自相似 + 多諧波 t 統計。無 cv2/PIL。 */
-const PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
+var PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
 PA_ROOT.PA = PA_ROOT.PA || {};
 PA.pixelate = PA.pixelate || {};
 

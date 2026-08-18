@@ -5,7 +5,7 @@
    Copyright 2024 KohakuBlueLeaf
    輪廓擴張 + CIELAB 對比感知降採樣。不碰 torch；unfold 以區塊統計近似。
    TODO(v3.1)：完全對齊 apply_chunk 的 fold/unfold 重疊寫入。 */
-const PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
+var PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
 PA_ROOT.PA = PA_ROOT.PA || {};
 PA.pixelate = PA.pixelate || {};
 

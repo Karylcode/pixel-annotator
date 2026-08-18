@@ -1,7 +1,7 @@
 /* pixelate/detect/runs.js
    移植自 unfake.js unfake-core runs-based 尺度偵測。MIT；只移植原始碼，未使用 wasm 或 GPL 減色庫。
    https://github.com/jenissimo/unfake.js */
-const PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
+var PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
 PA_ROOT.PA = PA_ROOT.PA || {};
 PA.pixelate = PA.pixelate || {};
 

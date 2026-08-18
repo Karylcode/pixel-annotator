@@ -1,5 +1,5 @@
 /* pixelate/detect/legacy.js — 現有 detectGridAsync 原封搬入，註冊 id 'legacy'。 */
-const PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
+var PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
 PA_ROOT.PA = PA_ROOT.PA || {};
 PA.pixelate = PA.pixelate || {};
 

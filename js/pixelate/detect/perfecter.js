@@ -2,7 +2,7 @@
    移植自 pixel-perfecter（MIT）https://github.com/alexkorol/pixel-perfecter
    四子偵測：exact-NN、Canny 投影、自相關、phase-fold；統一分數 inter/√intra。
    一併致謝 proper-pixel-art（KennethJAllen）。 */
-const PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
+var PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
 PA_ROOT.PA = PA_ROOT.PA || {};
 PA.pixelate = PA.pixelate || {};
 

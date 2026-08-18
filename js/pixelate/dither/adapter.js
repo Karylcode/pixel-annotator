@@ -3,7 +3,7 @@
    https://github.com/Tezumie/Image-to-Pixel  commit b0d5b7422db309dae22c2a69d4ebca0ce8c14b78
    vendor 檔依賴 document，Worker / Node 走下方備援（演算法與 vendor 相同）。
    不呼叫 fetchPalette（Lospec）。 */
-const PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
+var PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
 PA_ROOT.PA = PA_ROOT.PA || {};
 PA.pixelate = PA.pixelate || {};
 

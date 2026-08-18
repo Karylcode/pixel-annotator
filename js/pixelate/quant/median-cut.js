@@ -1,5 +1,5 @@
 /* pixelate/quant/median-cut.js — 經典中位切割減色，輸出格式同 oklab-kmeans。 */
-const PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
+var PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
 PA_ROOT.PA = PA_ROOT.PA || {};
 PA.pixelate = PA.pixelate || {};
 

@@ -1,5 +1,5 @@
 /* pixelate/grid.js — 格線邊界。自 js/pixelate.js 原封搬入。 */
-const PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
+var PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
 PA_ROOT.PA = PA_ROOT.PA || {};
 PA.pixelate = PA.pixelate || {};
 

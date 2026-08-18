@@ -1,7 +1,7 @@
 /* pixelate/detect/fft.js
    移植自 perfectPixel（MIT）https://github.com/theamusing/perfectPixel
    梯度剖面 + Hann + rfft 主頻 → 格寬。 */
-const PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
+var PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
 PA_ROOT.PA = PA_ROOT.PA || {};
 PA.pixelate = PA.pixelate || {};
 

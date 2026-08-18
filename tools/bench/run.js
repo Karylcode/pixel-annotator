@@ -113,10 +113,11 @@ async function runOne(c, k, method, colours, removeBg) {
   const nx = grid ? grid.nx : 0;
   const ny = grid ? grid.ny : 0;
   const ok = !!(grid && hit1(nx, c.n) && hit1(ny, c.n));
+  const exact = !!(grid && nx === c.n && ny === c.n);
   return {
     k, n: c.n, f: c.f, blur: c.blur, smooth: c.smooth, blocky: c.blocky,
     w: big.w, h: big.h,
-    nx, ny,
+    nx, ny, exact,
     sx: grid ? grid.sx : null,
     sy: grid ? grid.sy : null,
     phx: grid ? grid.phx : null,
@@ -135,12 +136,13 @@ async function main() {
   loadPixelate();
   const args = parseArgs(process.argv);
   const rows = [];
-  let hits = 0;
+  let hits = 0, exacts = 0;
   for (let k = 0; k < CASES.length; k++) {
     const row = await runOne(CASES[k], k, args.method, args.k, args.bg);
     rows.push(row);
     if (row.ok) hits++;
-    const mark = row.ok ? 'OK' : 'miss';
+    if (row.exact) exacts++;
+    const mark = row.exact ? 'EXACT' : row.ok ? '±1' : 'miss';
     console.log(
       String(k).padStart(2) + '  truth ' + String(row.n).padStart(2) +
       '  got ' + String(row.nx).padStart(3) + '×' + String(row.ny).padStart(3) +
@@ -152,7 +154,7 @@ async function main() {
       (CASES[k].blur ? ('  blur' + CASES[k].blur) : '')
     );
   }
-  console.log('hit ±1: ' + hits + '/' + CASES.length + '  (' + (100 * hits / CASES.length).toFixed(1) + '%)  method=' + args.method);
+  console.log('exact: ' + exacts + '/' + CASES.length + '  hit ±1: ' + hits + '/' + CASES.length + '  (' + (100 * hits / CASES.length).toFixed(1) + '%)  method=' + args.method);
 
   const slim = rows.map(r => ({
     k: r.k, n: r.n, f: r.f, blur: r.blur, smooth: r.smooth, blocky: r.blocky,

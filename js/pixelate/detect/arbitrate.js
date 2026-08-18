@@ -2,7 +2,7 @@
    移植自 Pixel Art Fixer python/pixelfixer/core.py 共識／仲裁
    + varcontrast.py / reconsearch.py（precise：積分影像變異數對比與 round-trip 誤差）
    commit ef376e57e1c272633ca2dbf5f29ec3fcf6596465  MIT */
-const PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
+var PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
 PA_ROOT.PA = PA_ROOT.PA || {};
 PA.pixelate = PA.pixelate || {};
 

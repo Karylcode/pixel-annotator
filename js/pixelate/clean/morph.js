@@ -2,7 +2,7 @@
    移植自 unfake.js 的形態學／鋸齒／alpha 清理。MIT，未使用 wasm。
    https://github.com/jenissimo/unfake.js
    id: holes | specks | jaggies | alpha */
-const PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
+var PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
 PA_ROOT.PA = PA_ROOT.PA || {};
 PA.pixelate = PA.pixelate || {};
 

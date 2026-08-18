@@ -1,5 +1,5 @@
 /* pixelate/lib/colour.js — 色彩空間。toOklab 自 js/pixelate.js 原封搬入。 */
-const PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
+var PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
 PA_ROOT.PA = PA_ROOT.PA || {};
 PA.pixelate = PA.pixelate || {};
 PA.pixelate.lib = PA.pixelate.lib || {};

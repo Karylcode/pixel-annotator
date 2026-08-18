@@ -2,7 +2,7 @@
    移植自 Pixel Art Fixer python/pixelfixer/runlengths.py
    commit ef376e57e1c272633ca2dbf5f29ec3fcf6596465  MIT
    對應：邊界 comb / MAX_LAG=4 / 0.70 近平手取最大 s。無 cv2，改 RGB L1 + 1×7 NMS。 */
-const PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
+var PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
 PA_ROOT.PA = PA_ROOT.PA || {};
 PA.pixelate = PA.pixelate || {};
 

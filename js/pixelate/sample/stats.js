@@ -2,7 +2,7 @@
    移植自 unfake.js 的格內統計取樣（dominant / mode / mean / median / qvote）。
    MIT；只移植演算法，未使用 wasm 或 GPL 減色庫。
    https://github.com/jenissimo/unfake.js */
-const PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
+var PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
 PA_ROOT.PA = PA_ROOT.PA || {};
 PA.pixelate = PA.pixelate || {};
 
