@@ -4,7 +4,9 @@
    commit 341aa85048338d4d26c62fba23176e2b70d9f61b  Apache-2.0
    Copyright 2024 KohakuBlueLeaf
    輪廓擴張 + CIELAB 對比感知降採樣。不碰 torch；unfold 以區塊統計近似。
-   TODO(v3.1)：完全對齊 apply_chunk 的 fold/unfold 重疊寫入。 */
+   TODO(v3.1)：完全對齊 apply_chunk 的 fold/unfold 重疊寫入。
+   2026-08-18 修正：中位數窗邊長 k*2、min/max 窗邊長 k（原本兩者都大一倍，
+   中位數取樣量超出緩衝區導致 med=undefined→NaN→輸出全黑），正規化改回 (x−min)/max。 */
 var PA_ROOT = typeof globalThis !== 'undefined' ? globalThis : self;
 PA_ROOT.PA = PA_ROOT.PA || {};
 PA.pixelate = PA.pixelate || {};
@@ -59,24 +61,28 @@ PA.pixelate = PA.pixelate || {};
     const sw = Math.max(1, Math.ceil(w / stride));
     const sh = Math.max(1, Math.ceil(h / stride));
     const small = new Float32Array(sw * sh);
-    const k2 = k * 2;
-    const buf = new Float32Array(k2 * k2);
+    // 上游 apply_chunk_torch(img, kernel, ...) 的 kernel 是「窗的邊長」：
+    //   中位數用 k*2、min/max 用 k。半徑因此是 k 與 k/2，不是 2k 與 k。
+    const medHalf = k;                 // 中位數窗邊長 = 2*medHalf = k*2
+    const mmHalf = Math.max(1, k >> 1); // min/max 窗邊長 = 2*mmHalf = k
+    const buf = new Float32Array((2 * medHalf + 2) * (2 * medHalf + 2));
     for (let sy = 0; sy < sh; sy++) {
       for (let sx = 0; sx < sw; sx++) {
         const cx = Math.min(w - 1, sx * stride + (stride >> 1));
         const cy = Math.min(h - 1, sy * stride + (stride >> 1));
         let n = 0, nK = 0, maxv = -Infinity, minv = Infinity, sum = 0;
-        const x0 = Math.max(0, cx - k2), x1 = Math.min(w, cx + k2);
-        const y0 = Math.max(0, cy - k2), y1 = Math.min(h, cy + k2);
+        const x0 = Math.max(0, cx - medHalf), x1 = Math.min(w, cx + medHalf);
+        const y0 = Math.max(0, cy - medHalf), y1 = Math.min(h, cy + medHalf);
         for (let y = y0; y < y1; y++) {
           for (let x = x0; x < x1; x++) {
-            buf[n++] = L[y * w + x];
+            if (n < buf.length) buf[n++] = L[y * w + x];
           }
         }
+        if (!n) { small[sy * sw + sx] = 0.5; continue; }
         const tmp = buf.slice(0, n).sort();
         const med = tmp[n >> 1];
-        const xk0 = Math.max(0, cx - k), xk1 = Math.min(w, cx + k);
-        const yk0 = Math.max(0, cy - k), yk1 = Math.min(h, cy + k);
+        const xk0 = Math.max(0, cx - mmHalf), xk1 = Math.min(w, cx + mmHalf);
+        const yk0 = Math.max(0, cy - mmHalf), yk1 = Math.min(h, cy + mmHalf);
         for (let y = yk0; y < yk1; y++) {
           for (let x = xk0; x < xk1; x++) {
             const v = L[y * w + x];
@@ -85,6 +91,7 @@ PA.pixelate = PA.pixelate || {};
             sum += v; nK++;
           }
         }
+        if (!nK) { maxv = med; minv = med; }
         const avg = med;
         const bright = maxv - avg, dark = avg - minv;
         small[sy * sw + sx] = sigmoid((avg - 0.5) * avgScale - (bright - dark) * distScale);
@@ -106,10 +113,14 @@ PA.pixelate = PA.pixelate || {};
         out[y * w + x] = (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty;
       }
     }
+    // 上游：(output - np.min(output)) / (np.max(output))　—— 分母是最大值，不是全距
     let mn = Infinity, mx = -Infinity;
     for (let i = 0; i < out.length; i++) { if (out[i] < mn) mn = out[i]; if (out[i] > mx) mx = out[i]; }
-    const span = mx - mn || 1;
-    for (let i = 0; i < out.length; i++) out[i] = (out[i] - mn) / span;
+    const den = mx || 1;
+    for (let i = 0; i < out.length; i++) {
+      const v = (out[i] - mn) / den;
+      out[i] = v >= 0 ? (v <= 1 ? v : 1) : 0;
+    }
     return out;
   }
 
