@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* tools/check.js — 零依賴檢查入口。語法、preset、回歸、CLI、RLE／PNG、保存清除、顏色、靜態資源。 */
+/* tools/check.js — 語法、preset、回歸、CLI、RLE／PNG、保存清除、顏色、靜態資源、特殊檔名。 */
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -22,7 +22,8 @@ function spawnNode(args, opts) {
 
 function walkJs(dir, acc) {
   for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (ent.name === 'node_modules' || ent.name === '.git') continue;
+    if (ent.name === 'node_modules' || ent.name === '.git' ||
+        ent.name === 'playwright-report' || ent.name === 'test-results') continue;
     const p = path.join(dir, ent.name);
     if (ent.isDirectory()) walkJs(p, acc);
     else if (ent.name.endsWith('.js')) acc.push(p);
@@ -354,7 +355,10 @@ function afterAsync() {
   assert('illegal #gggggg', n('#gggggg', '#e5484d') === '#e5484d');
   assert('empty uses fallback', n('', '#46a758') === '#46a758');
   PA.codec.bitmapFromRgba = (w, h, rgba) => ({
-    w, h, rgba, cvs: { getContext() { return { putImageData() {} }; } },
+    w, h, rgba, cvs: {
+      getContext() { return { putImageData() {} }; },
+      toDataURL() { return 'data:image/png;base64,'; },
+    },
   });
   const bmp = { w: 2, h: 2, rgba: new Uint8ClampedArray(16), cvs: { getContext() { return { putImageData() {} }; } } };
   PA.store.addBitmap('color-test', bmp);
@@ -398,6 +402,113 @@ function afterAsync() {
   assert('CLI uses shared list', /pixelate-files/.test(cliSrc));
   assert('bench uses shared list', /pixelate-files/.test(benchSrc));
 
-  console.log('\n' + passed + ' passed, ' + failed + ' failed');
-  process.exit(failed ? 1 : 0);
+  section('special image names');
+  runSpecialNameTests().catch(err => {
+    fail('special names async', err && err.message ? err.message : String(err));
+  }).then(() => {
+    console.log('\n' + passed + ' passed, ' + failed + ' failed');
+    process.exit(failed ? 1 : 0);
+  });
+}
+
+const SPECIAL_NAMES = ['__proto__', 'constructor', 'toString', 'hasOwnProperty'];
+
+function specialSprite(name) {
+  return {
+    name, w: 4, h: 4,
+    palette: [null, '#cc3333', '#33aa55'],
+    pixels: [
+      [1, 1, 1, 1],
+      [1, 1, 1, 1],
+      [1, 1, 2, 2],
+      [1, 1, 2, 2],
+    ],
+    parts: {
+      names: { 1: 'body' },
+      colors: { 1: '#e5484d' },
+      grid: [
+        [1, 1, 0, 0],
+        [1, 1, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+      ],
+    },
+  };
+}
+
+function assertNullDict(obj, label, own) {
+  assert(label + ' null prototype', Object.getPrototypeOf(obj) === null);
+  for (const k of SPECIAL_NAMES) {
+    if (k === own) continue;
+    assert(label + ' missing ' + k, obj[k] === undefined, typeof obj[k]);
+  }
+}
+
+async function runSpecialNameTests() {
+  const store = PA.store;
+  const restoreP = () => new Promise(res => store.restore((ok, info) => res({ ok, info })));
+
+  assert('hist toString not prototype', store.state.hist.toString === undefined);
+  assert('ann constructor not prototype', store.state.ann.constructor === undefined);
+  assert('sel hasOwnProperty not prototype', store.state.selByImg.hasOwnProperty === undefined);
+
+  for (const name of SPECIAL_NAMES) {
+    const { name: got, warning } = store.addDecoded(specialSprite(name));
+    assert(name + ' name kept', got === name, got);
+    assert(name + ' img.name', store.img().name === name, store.img().name);
+    assert(name + ' no warning', !warning, warning);
+    assertNullDict(store.state.ann, name + ' ann after import', name);
+    assertNullDict(store.state.hist, name + ' hist after import');
+    assertNullDict(store.state.selByImg, name + ' sel after import');
+    const rec = store.annot();
+    assert(name + ' annot record', !!(rec && rec.grid && Array.isArray(rec.parts)), typeof rec);
+    assert(name + ' annot not function', typeof rec !== 'function');
+
+    const id = store.addPart('arm');
+    assert(name + ' addPart', typeof id === 'number' && id > 0, String(id));
+    store.beginStroke('筆刷');
+    store.brushAt(3, 3, id);
+    store.endStroke();
+    assert(name + ' painted', rec.grid[15] === id, String(rec.grid[15]));
+    const h = store.state.hist[name];
+    assert(name + ' history object', !!(h && Array.isArray(h.past) && h.past.length), typeof h);
+    assertNullDict(store.state.hist, name + ' hist after stroke', name);
+    assert(name + ' canUndo', store.canUndo());
+    store.undoOnce();
+    assert(name + ' undo', rec.grid[15] === 0, String(rec.grid[15]));
+    assert(name + ' canRedo', store.canRedo());
+    store.redoOnce();
+    assert(name + ' redo', rec.grid[15] === id, String(rec.grid[15]));
+
+    const exported = store.exportData();
+    assert(name + ' export name', exported.name === name, exported.name);
+    assert(name + ' export cell', exported.parts.grid[3][3] === id, JSON.stringify(exported.parts.grid[3]));
+
+    const persisted = await store.persist();
+    assert(name + ' persist', !!(persisted && persisted.ok), persisted && persisted.reason);
+    const saved = JSON.parse(global.localStorage.getItem('pixann.v2'));
+    assert(name + ' save v:2', saved.v === 2, String(saved.v));
+    assert(name + ' save img name', saved.imgs.some(i => i.name === name));
+    assert(name + ' save ann key', Object.entries(saved.ann).some(([k]) => k === name));
+    assert(name + ' Object.prototype.past free', !Object.prototype.hasOwnProperty('past'));
+
+    store.closeCurrent();
+    assert(name + ' closed ann', store.state.ann[name] === undefined);
+    assert(name + ' closed hist', store.state.hist[name] === undefined);
+    assert(name + ' closed sel', store.state.selByImg[name] === undefined);
+    assertNullDict(store.state.ann, name + ' ann after close');
+    assertNullDict(store.state.hist, name + ' hist after close');
+    assertNullDict(store.state.selByImg, name + ' sel after close');
+
+    const reloaded = await restoreP();
+    assert(name + ' restore ok', reloaded.ok);
+    const idx = store.state.imgs.findIndex(i => i.name === name);
+    assert(name + ' restore present', idx >= 0, String(idx));
+    store.select(idx);
+    assert(name + ' restore name', store.img().name === name, store.img() && store.img().name);
+    assert(name + ' restore paint', store.annot().grid[15] === id, String(store.annot().grid[15]));
+    assertNullDict(store.state.ann, name + ' ann after restore', name);
+    store.closeCurrent();
+    assert(name + ' closed after restore', store.state.ann[name] === undefined);
+  }
 }

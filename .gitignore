@@ -23,3 +23,8 @@ desktop.ini
 # 本機測試素材與輸出
 _testimg/
 _out/
+
+# 開發檢查
+node_modules/
+playwright-report/
+test-results/

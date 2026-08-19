@@ -119,7 +119,7 @@ export const sprite = {
 
 ## 技術說明
 
-**純靜態、零依賴、無建置流程。** JS 檔用 `<script>` 依序載入，不需要 npm、bundler 或伺服器。想改哪裡就改哪裡，存檔重新整理就生效。
+**執行期零依賴、無建置流程。** 一般使用只要用瀏覽器開 `index.html`（或 GitHub Pages），圖片全程留在本機，不需要 npm、bundler 或建置步驟。開發檢查（lint、回歸、瀏覽器煙霧測試）才需要 Node / npm。
 
 ```
 index.html          版面

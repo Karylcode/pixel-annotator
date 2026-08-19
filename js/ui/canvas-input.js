@@ -130,7 +130,8 @@ PA._ui.createCanvasInput = function(host) {
         store.strokeTo(lastStrokeEnd[0], lastStrokeEnd[1], x, y, v);
       store.brushAt(x, y, v);
       lastStrokeEnd = [x, y];
-      draw(); updatePartCounts(); renderSummary();
+      draw();
+      schedulePanelCounts();
     });
 
     cv.addEventListener('pointermove', e => {

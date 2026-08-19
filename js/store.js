@@ -45,18 +45,28 @@ PA.store = (() => {
     return normalizePartColor(value, fb);
   }
 
+  // 圖片名稱可能是 __proto__ / constructor / toString：一般 {} 會讀到原型方法。
+  // 內部索引表一律無原型；從 JSON 來的物件要抄進來，不能直接當表用。
+  const dict = () => Object.create(null);
+  const dictFrom = obj => {
+    const out = dict();
+    if (obj && typeof obj === 'object') {
+      for (const [k, v] of Object.entries(obj)) out[k] = v;
+    }
+    return out;
+  };
 
   const state = {
     imgs: [],            // [{name, w, h, rgba, cvs, rev}]  rev：點陣圖版本，改過像素就 +1（快取用）
     cur: -1,
-    ann: {},             // name -> {parts:[{id,name,color}], grid:Int16Array, next, counts:{id:n}, annTotal, annOpaque}
-    hist: {},            // name -> { past:[entry], future:[entry] }
+    ann: dict(),         // name -> {parts:[{id,name,color}], grid:Int16Array, next, counts:{id:n}, annTotal, annOpaque}
+    hist: dict(),        // name -> { past:[entry], future:[entry] }
                          // entry = {label, parts, next, active, shown} + 以下其一：
                          //   grid: Int16Array                     整份標註網格
                          //   diff: {idx:Int32Array, val:Int16Array, n}   標註稀疏 diff（筆刷 / 擦除）
                          //   w, h, rgba, cvs (+ grid)             整張點陣圖（裁切 / 像素化）
                          //   pdiff: {idx:Int32Array, rgba:Uint8ClampedArray, n}  像素稀疏 diff（繪圖 / 擦成透明）
-    selByImg: {},        // name -> {active, shown:[id]}  每張圖各自的選取狀態
+    selByImg: dict(),    // name -> {active, shown:[id]}  每張圖各自的選取狀態
     tool: 'brush',
     zoom: 24,
     zoomTouched: false,  // 使用者動過縮放之後就不再自動貼合
@@ -1055,8 +1065,9 @@ PA.store = (() => {
         const keep = [];
         slots.forEach((s, i) => { if (s) keep.push(i); });
         state.imgs = keep.map(i => slots[i]);
-        state.ann = {}; state.hist = {};
-        const ann = (p.ann && typeof p.ann === 'object') ? p.ann : {};
+        state.ann = dict();
+        state.hist = dict();
+        const ann = dictFrom(p.ann);
         const colorStats = { invalid: 0 };
         for (const im of state.imgs) {
           const v = ann[im.name];
@@ -1077,9 +1088,13 @@ PA.store = (() => {
           state.ann[im.name] = a || blankAnn(im.w, im.h);
           recount(state.ann[im.name], im);
         }
-        // 只留有圖片的標註（孤兒不再被寫回去）
-        state.selByImg = (p.sel && typeof p.sel === 'object') ? p.sel : {};
-        for (const k of Object.keys(state.selByImg)) if (!state.ann[k]) delete state.selByImg[k];
+        // 只留有圖片的選取（孤兒不再被寫回去）；外部 sel 抄進無原型字典
+        state.selByImg = dict();
+        if (p.sel && typeof p.sel === 'object') {
+          for (const [k, v] of Object.entries(p.sel)) {
+            if (state.ann[k]) state.selByImg[k] = v;
+          }
+        }
         const want = keep.indexOf(p.cur ?? 0);
         state.cur = state.imgs.length ? Math.max(0, want) : -1;
         restoreSel();
@@ -1088,7 +1103,11 @@ PA.store = (() => {
         done(state.imgs.length > 0, info);
       } catch (e) {
         // 讀進來的資料有問題：不要留在半還原狀態，也不要下次再踩一次
-        state.imgs = []; state.ann = {}; state.hist = {}; state.selByImg = {}; state.cur = -1;
+        state.imgs = [];
+        state.ann = dict();
+        state.hist = dict();
+        state.selByImg = dict();
+        state.cur = -1;
         Promise.resolve(clearSaved()).catch(() => {});
         done(false, { corrupt: true });
       }
