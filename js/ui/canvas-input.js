@@ -64,7 +64,7 @@ PA._ui.createCanvasInput = function(host) {
 
       // Alt+點：標註模式吸取部件、繪圖模式吸取顏色，免切工具
       if (e.altKey) {
-        if (host.mode === 'annotate') {
+        if (host.annotationEnabled && host.mode === 'annotate') {
           const id = store.annot().grid[store.idx(x, y)];
           if (id) { store.setActive(id); renderParts(); updateHud(); draw(); }
           else toast('這一格沒有標註');
@@ -99,6 +99,8 @@ PA._ui.createCanvasInput = function(host) {
         draw();
         return;
       }
+
+      if (!host.annotationEnabled) return;
 
       const v = S.tool === 'erase' ? 0 : S.activePart;
       if (!v && S.tool !== 'erase') {

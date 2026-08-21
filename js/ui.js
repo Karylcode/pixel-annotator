@@ -30,6 +30,12 @@ PA.ui = (() => {
 
   const canvas = PA._ui.createCanvasInput(host);
 
+  /* 暫時隱藏標註：只改 annotationEnabled 即可切換，不必再改 HTML。
+     false 關閉所有前台入口並保留資料；true 完整恢復標註介面。
+     HTML 的 draw / annotate=off 預設只避免 JS 載入前閃現。 */
+  const annotationEnabled = false;
+  host.annotationEnabled = annotationEnabled;
+
   /* ---------- 圖示 ---------- */
   const SVG_EYE = '<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 8s2.4-4 6.5-4 6.5 4 6.5 4-2.4 4-6.5 4S1.5 8 1.5 8z"/><circle cx="8" cy="8" r="1.8"/></svg>';
   const SVG_EYE_OFF = '<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l10 10M6.6 4.7A6.9 6.9 0 018 4.5c4.1 0 6.5 3.5 6.5 3.5a12.4 12.4 0 01-2.1 2.5M9.9 11.2A6.6 6.6 0 018 11.5C3.9 11.5 1.5 8 1.5 8a12.6 12.6 0 012.4-2.7"/></svg>';
@@ -37,7 +43,7 @@ PA.ui = (() => {
 
   let cv, stage;
   /* ---------- 模式與工具 ---------- */
-  let mode = 'annotate';
+  let mode = annotationEnabled ? 'annotate' : 'draw';
   const PIXEL_TOOLS = new Set(['draw', 'pick', 'epix']);
   const ANNOTATE_TOOLS = ['brush', 'wand', 'same', 'erase'];
   const TOOL_NAMES = { brush: '筆刷', wand: '魔棒', same: '同色全選', erase: '擦掉標註',
@@ -64,7 +70,7 @@ PA.ui = (() => {
   let hoverCell = null;       // 畫布上的游標格（筆刷輪廓 / 狀態列用）
   const view = () => ({
     image: vs.img,
-    parts: mode === 'annotate' && vs.parts && !hHold,
+    parts: annotationEnabled && mode === 'annotate' && vs.parts && !hHold,
     grid: vs.grid,
     mirror: mode === 'draw' && $('v-mirror').checked,
     mirrorAxis: $('mirroraxis').value === '' ? undefined : +$('mirroraxis').value,
@@ -537,7 +543,9 @@ PA.ui = (() => {
       nm.title = im.name;
       const sub = document.createElement('div');
       sub.className = 'isub mono';
-      sub.textContent = `${im.w}×${im.h} · 已標註 ${coverageOf(im)}%`;
+      sub.textContent = annotationEnabled
+        ? `${im.w}×${im.h} · 已標註 ${coverageOf(im)}%`
+        : `${im.w}×${im.h}`;
       meta.append(nm, sub);
       const x = document.createElement('button');
       x.className = 'ic';
@@ -609,13 +617,14 @@ PA.ui = (() => {
       const [x, y] = hoverCell;
       const px = store.pixelAt(x, y);
       const id = store.annot().grid[store.idx(x, y)];
-      const pname = id ? (store.partById(id)?.name || id) : null;
+      const pname = annotationEnabled && id ? (store.partById(id)?.name || id) : null;
       left += `${x}, ${y} · <span class="stsw" style="background:${rgb2hex(px)}"></span> ${px[3] < 8 ? '透明' : rgb2hex(px)}`;
       if (pname) left += ` · ${esc(pname)}`;
-      if (PREVIEW_TOOLS.has(S.tool) && preview) left += ` · 會選到 ${preview.count.toLocaleString()} 格`;
+      if (annotationEnabled && PREVIEW_TOOLS.has(S.tool) && preview) left += ` · 會選到 ${preview.count.toLocaleString()} 格`;
       left += ' │ ';
     }
-    left += `${S.zoom}× │ 筆刷 ${S.brush}px │ 已標註 ${c.pct}%`;
+    left += `${S.zoom}× │ 筆刷 ${S.brush}px`;
+    if (annotationEnabled) left += ` │ 已標註 ${c.pct}%`;
     if (mode === 'draw' && $('v-mirror').checked)
       left += ` │ 不對稱 ${render.mirrorDiff().toLocaleString()} 格（軸 ${currentAxis()}）`;
     left += ` │ ${persistence.saveState === 'foreign' ? '⚠ 另一分頁較新，未保存' : persistence.saveState === 'fail' ? '⚠ 未能保存' : persistence.savePending ? '保存中…' : '已保存 ✓'}`;
@@ -777,7 +786,7 @@ PA.ui = (() => {
   function loadText(src) {
     const { name, warning } = store.addDecoded(codec.parseLoose(src), codec.extractName(src));
     fit(); renderAll(); save_();
-    if (warning) toast(warning, { kind: 'warn' });
+    if (warning) toast(publicDataMessage(warning), { kind: 'warn' });
     return name;
   }
 
@@ -819,7 +828,7 @@ PA.ui = (() => {
 
   function openQuickMenu(x, y, invoker) {
     const items = [];
-    if (mode === 'annotate') {
+    if (annotationEnabled && mode === 'annotate') {
       items.push({ head: '部件' });
       const a = store.annot();
       a.parts.slice(0, 9).forEach((p, i) => items.push({
@@ -860,6 +869,43 @@ PA.ui = (() => {
 
   const tabFor = { annotate: 'parts', draw: 'colors' };   // 依模式記住使用者手動切的分頁
 
+  function visibleTabButtons() {
+    return [...document.querySelectorAll('.tabbar [data-tab]')]
+      .filter(b => annotationEnabled || b.dataset.tab !== 'parts');
+  }
+
+  function publicDataMessage(message) {
+    if (annotationEnabled) return String(message ?? '');
+    return String(message ?? '')
+      .replace(/parts\.grid 有 (.+?) 格，與 (\d+×\d+) 不符，已略過標註/g,
+        '附加資料有 $1 格，與圖片 $2 不符，已略過')
+      .replace(/（標註與圖片尺寸不符，已略過）/g, '（附加資料與圖片尺寸不符，已略過）')
+      .replace(/parts\.grid/g, '附加資料')
+      .replace(/標註/g, '附加資料')
+      .replace(/部件/g, '資料項目');
+  }
+
+  function applyAnnotationGate() {
+    document.body.dataset.annotate = annotationEnabled ? 'on' : 'off';
+    if (annotationEnabled) {
+      $('x-data-label').textContent = '資料（含部件標註）';
+      $('d-panel').title = '部件 / 顏色 / 圖片 / 匯出';
+      $('v-img').title = '原圖（按住 H 暫時只看原圖）';
+      if ($('k-alt-hint')) $('k-alt-hint').textContent = '吸取部件 / 顏色';
+      applyMode('annotate');
+      setTool('brush');
+      setTab('parts', true, false);
+      return;
+    }
+    $('x-data-label').textContent = '資料';
+    $('d-panel').title = '顏色 / 圖片 / 匯出';
+    $('v-img').title = '原圖';
+    if ($('k-alt-hint')) $('k-alt-hint').textContent = '吸取顏色';
+    applyMode('draw');
+    setTool('draw');
+    setTab('colors', true, false);
+  }
+
   function applyMode(m) {
     mode = m;
     document.body.dataset.mode = m;
@@ -872,6 +918,7 @@ PA.ui = (() => {
   }
 
   function setMode(m) {
+    if (!annotationEnabled && m === 'annotate') return;
     if (mode === m) return;
     applyMode(m);
     setTool(m === 'draw' ? 'draw' : 'brush');
@@ -882,7 +929,12 @@ PA.ui = (() => {
     // 筆畫或手勢進行中按了快捷鍵：先把它結束掉，不能讓同一筆在新工具下繼續（會逃出它的復原快照）
     if (canvas.drawing) canvas.finishStroke();
     if (canvas.gestureEnd) canvas.gestureEnd();
+    if (!annotationEnabled && ANNOTATE_TOOLS.includes(t)) {
+      if (ANNOTATE_TOOLS.includes(S.tool)) t = 'draw';
+      else return;
+    }
     const need = modeOf(t);
+    if (!annotationEnabled && need === 'annotate') return;
     if (mode !== need) { applyMode(need); setTab(tabFor[need], true, !isMobile()); }
     S.tool = t;
     document.querySelectorAll('.toolbtn[data-tool]').forEach(b => {
@@ -900,6 +952,7 @@ PA.ui = (() => {
 
   // reveal=false：只切分頁，不把收合中的右欄展開（行動版切模式 / 工具時用）
   function setTab(name, manual = true, reveal = true) {
+    if (!annotationEnabled && name === 'parts') name = 'colors';
     document.querySelectorAll('.tabbar [data-tab]').forEach(b => {
       const on = b.dataset.tab === name;
       b.classList.toggle('on', on);
@@ -1107,7 +1160,9 @@ PA.ui = (() => {
     const fmtOk = im.w <= exportCtrl.TEXT_FMT_MAX && im.h <= exportCtrl.TEXT_FMT_MAX;
     showConfirm({
       title: '關閉圖片',
-      body: `「${im.name}」有 ${c.annotated.toLocaleString()} 格標註，關閉後無法復原。可以先下載 JSON 保留標註，之後再匯入。`,
+      body: annotationEnabled
+        ? `「${im.name}」有 ${c.annotated.toLocaleString()} 格標註，關閉後無法復原。可以先下載 JSON 保留標註，之後再匯入。`
+        : `「${im.name}」含有附加資料，關閉後無法復原。可以先下載 JSON 保留工作資料，之後再匯入。`,
       buttons: [
         { label: '取消', kind: 'ghost', focus: true },
         { label: '關閉', kind: 'danger', action: close },
@@ -1150,9 +1205,9 @@ PA.ui = (() => {
       showMenu(r.left, r.bottom + 6, [
         { label: '開啟圖片…', action: () => $('file').click() },
         { label: '貼上 JSON / JS…', kbd: 'Ctrl+V', action: () => openPaste(null, '') },
-        { label: '匯入標註…', disabled: !store.has(),
+        ...(annotationEnabled ? [{ label: '匯入標註…', disabled: !store.has(),
           title: store.has() ? '' : '先開啟對應的圖片',
-          action: () => $('filejson').click() },
+          action: () => $('filejson').click() }] : []),
         { sep: true },
         { label: '匯出目前這張…', disabled: !store.has(), action: () => setTab('export') },
         { label: `匯出全部（zip）${S.imgs.length > 1 ? `· ${S.imgs.length} 張` : ''}`, disabled: S.imgs.length < 2,
@@ -1163,10 +1218,14 @@ PA.ui = (() => {
           title: store.has() ? '' : '沒有開啟的圖片',
           action: () => requestCloseImage() },
         { label: '清除瀏覽器裡的保存資料…', danger: true,
-          title: '刪掉自動保存在這個瀏覽器的圖片與標註（目前開著的不受影響，下次不再自動還原）',
+          title: annotationEnabled
+            ? '刪掉自動保存在這個瀏覽器的圖片與標註（目前開著的不受影響，下次不再自動還原）'
+            : '刪掉自動保存在這個瀏覽器的圖片與工作資料（目前開著的不受影響，下次不再自動還原）',
           action: () => showConfirm({
             title: '清除保存資料',
-            body: '會刪掉自動保存在這個瀏覽器裡的圖片與標註。目前開著的圖片不受影響，但下次開啟時不會自動還原（之後的變更仍會重新保存）。',
+            body: annotationEnabled
+              ? '會刪掉自動保存在這個瀏覽器裡的圖片與標註。目前開著的圖片不受影響，但下次開啟時不會自動還原（之後的變更仍會重新保存）。'
+              : '會刪掉自動保存在這個瀏覽器裡的圖片與工作資料。目前開著的圖片不受影響，但下次開啟時不會自動還原（之後的變更仍會重新保存）。',
             buttons: [
               { label: '取消', kind: 'ghost', focus: true },
               { label: '清除', kind: 'danger', action: async () => {
@@ -1347,7 +1406,7 @@ PA.ui = (() => {
     // 分頁列只有一個 tab stop，← → 在分頁間移動（APG tabs pattern）
     document.querySelector('.tabbar').addEventListener('keydown', e => {
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End') return;
-      const tabs = [...document.querySelectorAll('.tabbar [data-tab]')];
+      const tabs = visibleTabButtons();
       const i = tabs.indexOf(document.activeElement);
       if (i < 0) return;
       e.preventDefault();
@@ -1466,6 +1525,7 @@ PA.ui = (() => {
       if (e.key === '?') return openDialog(keys);
 
       if (e.key.toLowerCase() === 'h' && !e.repeat && !ctrl) {
+        if (!annotationEnabled) return;
         hHold = true; draw(); return;
       }
       if (e.key === '[' || e.key === ']') {
@@ -1480,10 +1540,10 @@ PA.ui = (() => {
       if (e.key === '-') return zoomStep(-1);
       if (e.key === '0') { S.zoomTouched = false; fit(); draw(); return; }
 
-      if (e.key === 'Delete' && mode === 'annotate' && S.activePart) {
+      if (e.key === 'Delete' && annotationEnabled && mode === 'annotate' && S.activePart) {
         return deletePartWithUndo(S.activePart);
       }
-      if (e.key === 'F2' && mode === 'annotate' && S.activePart) {
+      if (e.key === 'F2' && annotationEnabled && mode === 'annotate' && S.activePart) {
         const row = $('parts').querySelector(`.part[data-id="${S.activePart}"] .nm`);
         const p = store.partById(S.activePart);
         if (row && p) startRename(row, p);
@@ -1492,9 +1552,12 @@ PA.ui = (() => {
 
       const t = { b: 'brush', w: 'wand', s: 'same', e: 'erase', c: 'crop',
                   d: 'draw', i: 'pick', x: 'epix' }[e.key.toLowerCase()];
-      if (t && !ctrl) return setTool(t);
+      if (t && !ctrl) {
+        if (!annotationEnabled && ANNOTATE_TOOLS.includes(t)) return;
+        return setTool(t);
+      }
 
-      if (mode === 'annotate' && store.has() && /^[1-9]$/.test(e.key)) {
+      if (annotationEnabled && mode === 'annotate' && store.has() && /^[1-9]$/.test(e.key)) {
         const p = store.annot().parts[+e.key - 1];
         if (p) { store.setActive(p.id); renderParts(); draw(); updateHud(); }
       }
@@ -1568,6 +1631,7 @@ PA.ui = (() => {
     render.init(cv);
     canvas.attach();
     bind();
+    applyAnnotationGate();
     applyMobileMode(isMobile());   // 行動版：抽屜預設收起；桌面：無作用
     renderAll();
     store.restore((ok, info = {}) => {
@@ -1582,14 +1646,14 @@ PA.ui = (() => {
         // 上一個工作階段有變更因為配額不足沒能存進來：還原的是較舊的版本，要講清楚
         toast(`已還原 ${when} 保存的版本 — 之後的變更因瀏覽器儲存空間不足未能保存`, { kind: 'warn', duration: 10000 });
       } else if (info.migrated) {
-        toast('已從舊版資料還原上次的標註', { kind: 'success' });
+        toast(annotationEnabled ? '已從舊版資料還原上次的標註' : '已從舊版資料還原上次的工作資料', { kind: 'success' });
       } else {
-        toast('已還原上次的標註' + (when ? `（${when}）` : ''), { kind: 'success' });
+        toast((annotationEnabled ? '已還原上次的標註' : '已還原上次的工作資料') + (when ? `（${when}）` : ''), { kind: 'success' });
       }
       if (info.failed && info.failed.length)
-        toast(`有 ${info.failed.length} 張圖無法還原：${info.failed.join('、')}`, { kind: 'warn', duration: 8000 });
+        toast(publicDataMessage(`有 ${info.failed.length} 張圖無法還原：${info.failed.join('、')}`), { kind: 'warn', duration: 8000 });
       if (info.warnings && info.warnings.length)
-        toast(info.warnings.join('；'), { kind: 'warn', duration: 8000 });
+        toast(publicDataMessage(info.warnings.join('；')), { kind: 'warn', duration: 8000 });
       // 舊版鍵遷移過來之後立刻以新格式寫一份，之後就走 pixann.v2
       if (info.migrated) { save_(); flushSave(); }
     });
