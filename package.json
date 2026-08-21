@@ -1,7 +1,7 @@
 {
   "name": "pixel-annotator",
   "private": true,
-  "description": "Pixel art restoration and part annotation — runtime is static with zero npm dependencies.",
+  "description": "Pixel art restoration, drawing and crop — runtime is static with zero npm dependencies.",
   "scripts": {
     "lint": "eslint .",
     "check": "node tools/check.js",

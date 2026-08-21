@@ -265,6 +265,13 @@ body.interacting .panel, body.interacting header, body.interacting #hud { backdr
 
 body[data-mode="annotate"] .m-draw { display: none !important; }
 body[data-mode="draw"] .m-annotate { display: none !important; }
+body[data-annotate="off"] .grp-mode,
+body[data-annotate="off"] #dock .modesw,
+body[data-annotate="off"] .m-annotate,
+body[data-annotate="off"] .ann-only,
+body[data-annotate="off"] .tabbar [data-tab="parts"],
+body[data-annotate="off"] #tab-parts,
+body[data-annotate="off"] .railmini [data-tab="parts"] { display: none !important; }
 
 .brushrow { display: flex; align-items: center; gap: var(--sp-2); }
 .brushrow input[type=range] { flex: 1; }
